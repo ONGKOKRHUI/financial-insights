@@ -276,7 +276,7 @@ INCOME_STATEMENTS: dict = {
         {"fiscal_year": 2021, "revenue_bln": 25.6, "gross_profit_bln": 17.0, "operating_income_bln": 10.8, "net_income_bln": 7.2, "eps": 0.68, "gross_margin_pct": 66.4, "operating_margin_pct": 42.2, "net_margin_pct": 28.1},
         {"fiscal_year": 2022, "revenue_bln": 27.4, "gross_profit_bln": 18.3, "operating_income_bln": 11.6, "net_income_bln": 7.9, "eps": 0.75, "gross_margin_pct": 66.8, "operating_margin_pct": 42.3, "net_margin_pct": 28.8},
         {"fiscal_year": 2023, "revenue_bln": 29.1, "gross_profit_bln": 19.8, "operating_income_bln": 12.4, "net_income_bln": 8.6, "eps": 0.81, "gross_margin_pct": 68.0, "operating_margin_pct": 42.6, "net_margin_pct": 29.6},
-        {"fiscal_year": 2024, "revenue_bln": 30.2, "gross_profit_bln": 20.6, "operating_income_bln": 13.1, "net_income_bln": 9.1, "eps": 0.86, "gross_margin_pct": 68.2, "operating_margin_pct": 43.4, "net_margin_pct": 30.1},
+        {"fiscal_year": 2024, "revenue_bln": 31.2, "gross_profit_bln": 20.6, "operating_income_bln": 13.1, "net_income_bln": 9.1, "eps": 0.86, "gross_margin_pct": 68.2, "operating_margin_pct": 43.4, "net_margin_pct": 30.1},
     ],
     "CIMB": [
         {"fiscal_year": 2020, "revenue_bln": 17.2, "gross_profit_bln": 10.8, "operating_income_bln": 5.8, "net_income_bln": 3.1, "eps": 0.31, "gross_margin_pct": 62.8, "operating_margin_pct": 33.7, "net_margin_pct": 18.0},
