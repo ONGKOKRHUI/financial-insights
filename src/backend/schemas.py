@@ -32,6 +32,7 @@ class KPISummary(BaseModel):
     eps: float
     pe_ratio: Optional[float]
     roe_pct: float
+    roace_pct: Optional[float]
     debt_to_equity: float
     dividend_yield_pct: Optional[float]
     fiscal_year: int
@@ -54,3 +55,41 @@ class IncomeStatementResponse(BaseModel):
     name: str
     currency: str
     data: list[IncomeStatementEntry]
+
+
+class BalanceSheetEntry(BaseModel):
+    fiscal_year: int
+    total_assets_bln: float
+    total_liabilities_bln: float
+    total_equity_bln: float
+    cash_and_equivalents_bln: float
+    total_debt_bln: float
+
+
+class BalanceSheetResponse(BaseModel):
+    ticker: str
+    name: str
+    currency: str
+    data: list[BalanceSheetEntry]
+
+
+class CashFlowEntry(BaseModel):
+    fiscal_year: int
+    operating_cash_flow_bln: float
+    capital_expenditure_bln: float
+    free_cash_flow_bln: float
+    dividends_paid_bln: float
+
+
+class CashFlowResponse(BaseModel):
+    ticker: str
+    name: str
+    currency: str
+    data: list[CashFlowEntry]
+
+
+class QualitativeInsight(BaseModel):
+    ticker: str
+    fiscal_year: int
+    future_outlook: str
+    key_strategic_events: list[str]

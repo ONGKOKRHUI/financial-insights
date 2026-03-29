@@ -14,10 +14,6 @@ jobs:
     name: Build & Deploy to Vercel
     runs-on: ubuntu-latest
 
-    # defaults:
-    #   run:
-    #     working-directory: frontend
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,24 +25,20 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Debug location
-        run: |
-          pwd
-          ls
-          ls frontend
-
       - name: Install dependencies
         run: npm ci
         working-directory: ./frontend
 
       - name: Type check
         run: npx tsc --noEmit
+        working-directory: ./frontend
 
-      - name: Build Next.js app 
+      - name: Build Next.js app
         run: npm run build
+        working-directory: ./frontend
         env:
-          NEXT_PUBLIC_API_URL: "https://financial-insights-grit.onrender.com" #${{ secrets.NEXT_PUBLIC_API_URL }}
-          INTERNAL_API_URL: "https://financial-insights-grit.onrender.com" #${{ secrets.INTERNAL_API_URL }}
+          NEXT_PUBLIC_API_URL: "https://financial-insights-grit.onrender.com"
+          INTERNAL_API_URL: "https://financial-insights-grit.onrender.com"
 
       - name: Deploy to Vercel (Production)
         uses: amondnet/vercel-action@v25
@@ -57,6 +49,5 @@ jobs:
           working-directory: ./frontend
           vercel-args: "--prod --force"
         env:
-          NEXT_PUBLIC_API_URL: "https://financial-insights-grit.onrender.com" #${{ secrets.NEXT_PUBLIC_API_URL }}
-          INTERNAL_API_URL: "https://financial-insights-grit.onrender.com" #${{ secrets.INTERNAL_API_URL }}
- 
+          NEXT_PUBLIC_API_URL: "https://financial-insights-grit.onrender.com"
+          INTERNAL_API_URL: "https://financial-insights-grit.onrender.com"
