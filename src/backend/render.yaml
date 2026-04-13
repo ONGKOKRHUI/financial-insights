@@ -1,36 +1,34 @@
 # render.yaml
-# This file tells Render how to deploy and run the application.
-# Render reads this configuration automatically when the repository is connected.
+# Render IaC config: declares the web service.
+# Render reads this file automatically when the repository is connected.
+#
+# NOTE: This project uses Supabase for PostgreSQL (not Render's built-in DB).
+#       Set DATABASE_URL manually in the Render dashboard using your
+#       Supabase connection string.
 
 services:
-  - type: web               # Defines the service type. "web" means an HTTP server that receives web requests.
-    name: finsight-api     # The name of the service as it appears in the Render dashboard.
+  - type: web
+    name: finsight-api
+    runtime: python
+    pythonVersion: "3.12"
+    rootDir: src/backend
 
-    runtime: python        # Specifies the runtime environment. Render will create a Python environment.
-    pythonVersion: "3.11"
-    
-    # Command executed during the build phase of deployment.
-    # Typically used to install dependencies required by the application.
-    buildCommand: |
-      pip install -r requirements.txt
+    # Install Python dependencies
+    buildCommand: pip install -r requirements.txt
 
-    # Command used to start the application once the build is complete.
-    # uvicorn is an ASGI server used to run FastAPI apps.
-    # backend.main:app means:
-    #   backend/main.py → module
-    #   app → FastAPI instance inside that file
+    # Start the FastAPI app on the port Render assigns via $PORT
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
 
     envVars:
-      # Environment variable used by the application (e.g., for CORS configuration).
-      # ALLOWED_ORIGINS typically defines which frontend domains can access the API.
-      - key: ALLOWED_ORIGINS
-
-        # sync: false means the value will NOT be pulled from this YAML file.
-        # Instead, it must be manually configured in the Render dashboard.
-        # This is useful for secrets or environment-specific configuration.
+      # Supabase PostgreSQL connection string.
+      # Get it from: Supabase Dashboard → Project Settings → Database → URI
+      # Format: postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+      - key: DATABASE_URL
         sync: false
 
-    # When set to true, Render will automatically redeploy the service
-    # whenever changes are pushed to the connected Git repository.
+      # Comma-separated list of allowed CORS origins.
+      # Set to your Vercel frontend URL, e.g. https://your-app.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+
     autoDeploy: true

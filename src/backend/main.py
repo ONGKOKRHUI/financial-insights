@@ -1,21 +1,38 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from database import engine, SessionLocal
+from models import Base
+from seed import seed_if_empty
 from routers import companies, financials
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_if_empty(db)
+    finally:
+        db.close()
+    yield
+
 
 app = FastAPI(
     title="FinSight API",
     description=(
         "Financial data API for Malaysian Blue-Chip companies. "
-        "Provides company details, KPI summaries, and historical income statement data."
+        "Provides company details, KPI summaries, income statements, "
+        "balance sheets, cash flows, and qualitative insights."
     ),
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # --- CORS ----------------------------------------------------------------
-# Allow the Next.js frontend and any preview deployments.
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
@@ -33,7 +50,7 @@ app.include_router(financials.router)
 
 @app.get("/", tags=["health"])
 def root():
-    return {"status": "ok", "service": "FinSight API", "version": "0.1.0"}
+    return {"status": "ok", "service": "FinSight API", "version": "0.2.0"}
 
 
 @app.get("/health", tags=["health"])
