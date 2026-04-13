@@ -160,3 +160,4 @@ async def scrape(page, base_dir, year, quarter):
                     f"[Attempt {attempt}/{_MAX_RETRIES}] Download failed for "
                     f"{year} {quarter} after {_MAX_RETRIES} attempts: {err_str}"
                 )
+
