@@ -1,0 +1,36 @@
+# FinSight ETL Pipeline — Phase 2 dependencies
+# Install with: pip install -r src/pipeline/requirements.txt
+#
+# These are separate from src/backend/requirements.txt (FastAPI) and
+# src/scraper/requirements.txt (Playwright). The Airflow docker-compose
+# installs these automatically via airflow-init.
+
+# ── Orchestration ─────────────────────────────────────────────────────────────
+apache-airflow>=3.1.0
+
+# ── PDF Parsing ───────────────────────────────────────────────────────────────
+llama-cloud>=0.1.0          # LlamaCloud async client (LlamaParse)
+pymupdf>=1.24.0             # PyMuPDF fallback (fitz)
+
+# ── LangChain / LangGraph ─────────────────────────────────────────────────────
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-text-splitters>=0.3.0  # RecursiveCharacterTextSplitter
+langchain-google-genai>=2.0.0    # Google Gemini integration
+langgraph>=0.2.0
+
+# ── Observability ─────────────────────────────────────────────────────────────
+langfuse>=2.0.0
+
+# ── Data Validation ───────────────────────────────────────────────────────────
+pydantic>=2.0.0
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# ── HTTP client (Dify engine) ─────────────────────────────────────────────────
+requests>=2.31.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

@@ -51,8 +51,120 @@ docker compose up --build
 #   Postgres: localhost:5432 (user: postgres, pass: postgres, db: finsight)
 ```
 
-#### Next steps (full ETL pipeline)
+---
 
-- Set up Airflow or Prefect for orchestration
-- Build PyMuPDF / Unstructured PDF parser for financial report ingestion
-- Replace seed data with pipeline-generated records in PostgreSQL
+### Phase 2 Progress — ETL Pipeline Completed
+
+**Status:** Full automated PDF → PostgreSQL ETL pipeline delivered.
+
+#### What was built (ETL pipeline)
+
+##### Folder structure added
+
+```
+financial-insights/
+├── dags/
+│   └── finsight_etl_dag.py      Airflow DAG (@daily, LocalExecutor)
+├── src/
+│   ├── pipeline/                LangGraph state machine
+│   │   ├── __init__.py
+│   │   ├── state.py             PipelineState TypedDict
+│   │   ├── schemas.py           Pydantic v2 validated schemas
+│   │   ├── graph.py             run_pipeline() + CLI entry point
+│   │   ├── dify_client.py       Dify Workflow API client (PIPELINE_ENGINE=dify)
+│   │   ├── requirements.txt     ETL-specific dependencies
+│   │   └── nodes/
+│   │       ├── parser.py        LlamaParse → Markdown (PyMuPDF fallback)
+│   │       ├── router.py        Table vs narrative Markdown splitter
+│   │       ├── quantitative.py  Gemini structured extraction (4 statements)
+│   │       ├── qualitative.py   Gemini narrative summarisation
+│   │       └── merger.py        Pydantic merge + validation
+│   └── db/
+│       ├── __init__.py
+│       └── loader.py            PostgreSQL UPSERT + pipeline_runs tracker
+├── tests/
+│   └── test_pipeline.py         3-tier test suite (smoke + unit + integration)
+├── docker-compose.airflow.yml   Separate Airflow stack (LocalExecutor)
+└── .env.example                 Updated with all AI + Airflow keys
+```
+
+##### LangGraph state machine
+
+```
+parse_pdf → route_content → [extract_quantitative ‖ extract_qualitative] → merge_and_validate
+```
+
+- **Parser**: LlamaCloud async API (`tier=agentic`) → structured Markdown. Fallback: PyMuPDF
+- **Router**: Regex heuristic splits into `table_markdown` and `narrative_markdown`
+- **Quantitative**: Gemini `gemini-2.0-flash` with `with_structured_output()` extracts Income Statement, Balance Sheet, Cash Flow, KPI Summary — all in MYR billions
+- **Qualitative**: Gemini summarises MD&A → `future_outlook` string + `key_strategic_events` JSON array
+- **Merger**: Pydantic `FinancialReportPayload` validates final envelope; partial payloads stored on error
+
+##### Engine toggle
+
+Set `PIPELINE_ENGINE` in `.env`:
+
+| Value | Behaviour |
+|---|---|
+| `langgraph` (default) | Full LangGraph state machine |
+| `dify` | Parsed Markdown → Dify Workflow API → loader |
+
+##### Airflow orchestration
+
+- **DAG**: `finsight_etl` — `@daily`, 3 retries × 5-minute delay
+- **Idempotency**: `pipeline_runs` table tracks each PDF path; only unprocessed PDFs are picked up each run
+- **Airflow stack**: `docker-compose.airflow.yml` — isolated `postgres-airflow` (port 5433), webserver (port 8080), scheduler; never touches the main finsight DB
+
+##### Database loader
+
+- `db.loader.upsert_report(payload)` — `INSERT … ON CONFLICT (ticker, fiscal_year) DO UPDATE` for all 5 tables
+- `db.loader.mark_processed(pdf_path, status, ...)` — idempotent tracking in `pipeline_runs`
+- Full transaction with rollback on any DB exception
+
+##### Langfuse observability
+
+Every Gemini call in `extract_quantitative` and `extract_qualitative` attaches a `langfuse.callback.CallbackHandler`, capturing model, prompt, response, token usage, and latency at https://cloud.langfuse.com.
+
+#### How to run the pipeline locally
+
+```bash
+# Install deps
+pip install -r src/pipeline/requirements.txt
+
+# Smoke test (no DB/LLM needed)
+python tests/test_pipeline.py --smoke
+
+# Run on a single PDF (requires GOOGLE_API_KEY + DATABASE_URL in .env)
+python -m pipeline.graph --pdf src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf
+
+# Full integration test (DB + LLM + real PDF)
+python tests/test_pipeline.py --integration --pdf src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf
+
+# Watch mode — auto-triggers pipeline when scraper drops a new PDF
+python tests/test_pipeline.py --watch
+
+# Start Airflow (after main stack is running)
+docker compose -f docker-compose.airflow.yml up --build
+# UI → http://localhost:8080  (admin/admin)
+```
+
+#### PDF directory convention
+
+The scraper writes to `src/scraper/data/raw/{TICKER}/{TICKER}_{YEAR}_{QUARTER}.pdf`.  
+The DAG reads `FINSIGHT_RAW_DIR` env var (defaults to `src/scraper/data/raw`) and derives `ticker`, `fiscal_year`, `report_period` from the filename automatically.
+
+#### Dependencies added (ETL)
+
+| Package | Version | Purpose |
+|---|---|---|
+| `langchain-google-genai` | ≥2.0 | Gemini LLM integration |
+| `langchain` + `langchain-core` | ≥0.3 | Prompt templates, text splitter |
+| `langgraph` | ≥0.2 | State machine orchestration |
+| `langfuse` | ≥2.0 | LLM observability callbacks |
+| `llama-cloud` | ≥0.1 | LlamaParse PDF parsing API |
+| `pymupdf` | ≥1.24 | PyMuPDF fallback extraction |
+| `pydantic` | ≥2.0 | Schema validation |
+| `apache-airflow` | 2.9.3 | DAG orchestration |
+| `sqlalchemy` + `psycopg2-binary` | — | PostgreSQL UPSERT loader |
+| `requests` | ≥2.31 | Dify API client |
+| `python-dotenv` | ≥1.0 | `.env` loading |

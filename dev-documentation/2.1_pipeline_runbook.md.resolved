@@ -1,0 +1,236 @@
+# FinSight Phase 2 ETL Pipeline — Complete Runbook
+
+> Everything you need to get from zero → running tests and processing a real PDF.
+
+---
+
+## 1. Environment — What's Required vs. What's Present
+
+### API Keys Audit
+
+| Key | Where Set | Status |
+|-----|-----------|--------|
+| `GOOGLE_API_KEY` | `.env` (from `.env.example`) | ✅ Filled in |
+| `GEMINI_MODEL` | `.env` | ✅ `gemini-2.0-flash` |
+| `LLAMA_CLOUD_API_KEY` | `.env` | ✅ Filled in |
+| `LANGFUSE_PUBLIC_KEY` | `.env` | ✅ Filled in |
+| `LANGFUSE_SECRET_KEY` | `.env` | ✅ Filled in |
+| `LANGFUSE_HOST` | `.env` | ✅ `https://cloud.langfuse.com` |
+| `DATABASE_URL` | `.env` | ✅ Set to Supabase connection string |
+| `PIPELINE_ENGINE` | `.env` | ✅ `langgraph` |
+| `FINSIGHT_RAW_DIR` | `.env` | ✅ `src/scraper/data/raw` |
+| `AIRFLOW_FERNET_KEY` | `.env` | ⚠️ **Empty** — needed only for Airflow Docker setup, not for local test run |
+| `DIFY_API_KEY` | `.env` | ℹ️ `app-...` placeholder — only needed if `PIPELINE_ENGINE=dify` |
+
+> [!IMPORTANT]
+> **Your `.env` was incomplete** — it only had `SUPABASE_URL`, `VERCEL_URL`, and `RENDER_URL`. 
+> I have now populated all required ETL pipeline keys from `.env.example`. The file has been updated automatically.
+
+> [!NOTE]
+> **`GOOGLE_API_KEY` note**: The key in `.env.example` starts with `AlzaSy...` — real Google API keys start with `AIzaSy...`. This may be a typo/demo key. If extractions fail with an auth error, get a fresh key from https://aistudio.google.com/app/apikey and replace it in `.env`.
+
+---
+
+## 2. Required `pip install`s
+
+There are **two separate requirements files** — one for the scraper (Playwright-based) and one for the pipeline (LangGraph/LLM). Run both:
+
+### Step 2a — Pipeline dependencies (required to run tests + pipeline)
+
+```powershell
+# From repo root
+pip install -r src/pipeline/requirements.txt
+```
+
+This installs:
+- `langgraph`, `langchain`, `langchain-google-genai` — LangGraph + Gemini
+- `llama-cloud` — LlamaParse PDF → Markdown (primary parser)
+- `pymupdf` — PyMuPDF fallback parser (fitz)
+- `langfuse` — LLM observability
+- `pydantic` — data validation
+- `sqlalchemy`, `psycopg2-binary` — PostgreSQL UPSERT
+- `python-dotenv` — `.env` loading
+- `requests` — for Dify HTTP calls
+
+> [!NOTE]
+> `apache-airflow==2.9.3` is also listed in `src/pipeline/requirements.txt`, but you do **NOT** need to install Airflow locally to run the tests. The test suite detects if Airflow is absent and skips the DAG import test gracefully. Only install Airflow if you want to run the full Docker Compose orchestrator.
+
+### Step 2b — Scraper dependencies (only if running the scraper to get PDFs)
+
+```powershell
+pip install -r src/scraper/requirements.txt
+# Then install Playwright browsers
+python -m playwright install chromium
+```
+
+This installs: `playwright`, `playwright-stealth`, `schedule`, `greenlet`
+
+---
+
+## 3. Data — Do You Have PDFs to Process?
+
+> [!CAUTION]
+> **No PDF data exists yet.** There is currently no `src/scraper/data/raw/` directory and no PDFs anywhere in the repo. The scraper has never been run.
+
+You have **two options** to get PDFs:
+
+### Option A — Run the scraper (gets real PDFs from company websites)
+
+```powershell
+# From repo root — run one of the available scrapers
+python src/scraper/main.py
+```
+
+Scrapers available: `maybank`, `cimb`, `maxis`, `tnb`, `genting`, `petronas`, `sunway`, `telekom`
+
+PDFs will be saved to: `src/scraper/data/raw/<COMPANY>/<COMPANY>_<YEAR>_<QUARTER>.pdf`
+
+> [!WARNING]
+> Scrapers use Playwright + Stealth and hit live company IR websites. They can be slow and may require `playwright install chromium` first. Some scrapers may break if the IR website changed layout.
+
+### Option B — Drop in a PDF manually (recommended for testing)
+
+Create the directory and copy any financial report PDF into it with the correct naming format:
+
+```powershell
+# Create raw dir
+New-Item -ItemType Directory -Force -Path "src/scraper/data/raw/MAYBANK"
+
+# Copy a PDF (rename it to follow the naming convention)
+# Format: {TICKER}_{YEAR}_{QUARTER}.pdf
+Copy-Item "C:\path\to\your\report.pdf" "src/scraper/data/raw/MAYBANK\MAYBANK_2024_Q3.pdf"
+```
+
+The filename convention `TICKER_YEAR_PERIOD.pdf` is **critical** — the pipeline auto-extracts company metadata from the filename.
+
+---
+
+## 4. Database — Supabase Tables
+
+The pipeline UPSERTs into these tables in your Supabase DB:
+- `income_statements`
+- `balance_sheets`
+- `cash_flows`
+- `qualitative_insights`
+- `kpi_summaries`
+- `pipeline_runs` (auto-created by the loader if missing)
+
+> [!IMPORTANT]
+> The first four tables (`income_statements`, `balance_sheets`, `cash_flows`, `qualitative_insights`, `kpi_summaries`) must already exist in your Supabase database — they should have been created in Phase 1. The `pipeline_runs` table is created automatically on first run by `ensure_pipeline_runs_table()`.
+> If those tables don't exist yet, run the Phase 1 migration SQL against your Supabase instance before proceeding.
+
+---
+
+## 5. Run the Tests
+
+### Step 5a — Tier 1 + 2: Smoke Tests (no DB, no LLM, no PDF needed)
+
+These verify that all imports resolve and all schema/logic works correctly. **Always start here.**
+
+```powershell
+# From repo root
+python tests/test_pipeline.py --smoke
+```
+
+Expected output — all ✓ green:
+```
+FinSight ETL Pipeline — Test Suite
+
+Tier 1 — Import smoke tests
+  ──────────────────────────────
+  ✓ import pipeline.state.PipelineState
+  ✓ import pipeline.schemas.FinancialReportPayload
+  ✓ import pipeline.nodes.parser.parse_pdf
+  ✓ import pipeline.nodes.router.route_content
+  ✓ import pipeline.nodes.quantitative.extract_quantitative
+  ✓ import pipeline.nodes.qualitative.extract_qualitative
+  ✓ import pipeline.nodes.merger.merge_and_validate
+  ✓ import pipeline.dify_client.run_dify_workflow
+  ✓ import db.loader.upsert_report
+  ✓ pipeline.graph.build_graph() — LangGraph compiled OK
+  ~ dags/finsight_etl_dag.py — skipped (apache-airflow not installed locally)
+
+Tier 2 — Schema & logic unit tests
+  ────────────────────────────────────
+  ✓ FinancialReportPayload — valid construction
+  ✓ FinancialReportPayload — optional fields nullable
+  ✓ _extract_metadata_from_path — standard filename
+  ✓ _extract_metadata_from_path — CIMB Q4
+  ✓ route_content — empty input handled gracefully
+  ✓ route_content — realistic markdown split
+  ✓ merge_and_validate — assembles payload from both branches
+  ✓ upsert_report — raises ValueError on empty ticker/fiscal_year
+
+Results: 12/12 passed
+```
+
+### Step 5b — Tier 3: Integration Test (real LLM + real DB + real PDF)
+
+Requires: a PDF at the path shown, valid API keys in `.env`, and Supabase tables existing.
+
+```powershell
+# With a specific PDF path
+python tests/test_pipeline.py --integration --pdf "src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf"
+
+# OR auto-discover any PDF in the raw dir
+python tests/test_pipeline.py --integration
+```
+
+This will:
+1. Run `run_pipeline(pdf_path)` — calls LlamaParse → Gemini → merges output (~30–90 seconds)
+2. Validate the result with Pydantic schemas
+3. UPSERT the data into Supabase
+4. Read back from DB to confirm the write
+5. Verify `pipeline_runs` entry shows `status='success'`
+
+---
+
+## 6. Run the Pipeline Directly (CLI)
+
+You can also run the pipeline as a one-off CLI command without the test harness:
+
+```powershell
+# From repo root — add src/ to PYTHONPATH first
+$env:PYTHONPATH = "src"
+python -m pipeline.graph --pdf "src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf"
+
+# Save output to JSON
+python -m pipeline.graph --pdf "src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf" --output output.json
+```
+
+---
+
+## 7. Quick Start Summary (Ordered Steps)
+
+```powershell
+# 1. Install pipeline deps
+pip install -r src/pipeline/requirements.txt
+
+# 2. (If running scraper) Install scraper deps + browsers
+pip install -r src/scraper/requirements.txt
+python -m playwright install chromium
+
+# 3. Get a PDF (choose one):
+#    a) Run scraper: python src/scraper/main.py
+#    b) Drop PDF manually into src/scraper/data/raw/TICKER/TICKER_YEAR_PERIOD.pdf
+
+# 4. Run smoke tests (no PDF/DB needed)
+python tests/test_pipeline.py --smoke
+
+# 5. Run full integration test (needs PDF + live keys + Supabase)
+python tests/test_pipeline.py --integration --pdf "src/scraper/data/raw/MAYBANK/MAYBANK_2024_Q3.pdf"
+```
+
+---
+
+## 8. Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| `ModuleNotFoundError: pipeline` | `src/` not in PYTHONPATH | The test runner adds it automatically; for CLI use `$env:PYTHONPATH="src"` |
+| `google.auth.exceptions.DefaultCredentialsError` | Bad `GOOGLE_API_KEY` | Check key starts with `AIzaSy...` at https://aistudio.google.com |
+| `llama_cloud` import error | Wrong package name | Run `pip install llama-cloud` (not `llamaparse`) |
+| `sqlalchemy.exc.OperationalError` | DB tables missing or bad `DATABASE_URL` | Verify Supabase connection string in `.env` and that Phase 1 tables exist |
+| `fitz` not found | PyMuPDF not installed | Run `pip install pymupdf` |
+| LlamaParse returns empty string | Quota exhausted or bad API key | Check https://cloud.llamaindex.ai dashboard; pipeline falls back to PyMuPDF automatically |
+| Integration test: `No income_statements row` | LLM extraction returned empty / tables missing | Check Gemini key validity; ensure DB schema is created |
