@@ -1,75 +1,95 @@
 # API Overview
 
-!!! success "Current MVP"
-    The core financial data REST API with versioned endpoints is implemented in Phase 3.
+!!! success "Phase 3 — Live"
+    The FinSight REST API is live on Render. All endpoints documented here are
+    functional and accessible without authentication.
 
 ---
 
 ## Base URL
 
 ```
-https://api.finsight.dev/v1
+https://finsight-api.onrender.com
 ```
+
+Use this URL as the prefix for every request. There is no `/v1/` path prefix —
+endpoints are mounted directly at the root (e.g. `/companies`, not `/v1/companies`).
 
 ---
 
 ## API Design Principles
 
-<!-- Describe REST conventions: resource naming, versioning strategy, pagination, filtering, sorting -->
+- **Resource-based routing** — URLs identify resources, HTTP verbs identify actions.
+  `GET /companies/MAYBANK` returns a company; `POST /search` queries across tables.
+- **Ticker-keyed** — Every resource is addressed by its KLSE ticker symbol (uppercase
+  string), not a numeric ID. Path parameters are case-insensitive; the API normalises
+  to uppercase internally.
+- **No pagination** — The dataset is small (8 companies × 5 years per statement).
+  All list endpoints return the full result set.
+- **No filtering or sorting query params** — Data volumes are low enough that filtering
+  is done client-side. The `POST /search` endpoint accepts a `fiscal_year` to retrieve
+  a specific year.
+- **Bare JSON responses** — There is no outer `{ "success": true, "data": {} }`
+  envelope. Responses are plain JSON objects or arrays matching the Pydantic schemas
+  defined in `schemas.py`.
 
 ---
 
 ## Rate Limits
 
-| Tier | Requests / Minute | Requests / Day |
-|---|---|---|
-| Free | 10 | 100 |
-| Paid | 300 | 50,000 |
-| Internal | Unlimited | Unlimited |
+Rate limiting is **not enforced** in Phase 3. The values below are the planned limits
+for Phase 4+ when Redis-backed throttling is added.
 
-!!! info "Planned Architecture (Future Phases)"
-    Rate limiting via Redis is implemented in Phase 6.
+| Tier     | Requests / Minute | Requests / Day |
+|----------|-------------------|----------------|
+| Free     | 10                | 100            |
+| Paid     | 300               | 50,000         |
+| Internal | Unlimited         | Unlimited      |
 
 ---
 
 ## Response Format
 
-All API responses follow this envelope structure:
+Responses are bare JSON — no envelope wrapper. Example from `GET /companies/MAYBANK/summary`:
 
 ```json
 {
-  "success": true,
-  "data": {},
-  "meta": {
-    "request_id": "abc123",
-    "timestamp": "2026-01-01T00:00:00Z",
-    "version": "v1"
-  },
-  "error": null
+  "ticker": "MAYBANK",
+  "revenue_bln": 30.2,
+  "net_income_bln": 9.1,
+  "eps": 0.86,
+  "pe_ratio": 12.4,
+  "roe_pct": 10.8,
+  "roace_pct": 8.2,
+  "debt_to_equity": 0.92,
+  "dividend_yield_pct": 5.8,
+  "fiscal_year": 2024
 }
 ```
 
----
+Error responses include a `detail` field:
 
-## Error Codes
+```json
+{ "detail": "Company 'XYZ' not found." }
+```
 
-| HTTP Status | Code | Description |
-|---|---|---|
-| 400 | INVALID_PARAMS | Request parameters failed validation |
-| 401 | UNAUTHORIZED | Missing or invalid API key |
-| 403 | FORBIDDEN | Plan does not include this resource |
-| 404 | NOT_FOUND | Resource does not exist |
-| 429 | RATE_LIMITED | Request quota exceeded |
-| 500 | INTERNAL_ERROR | Unexpected server error |
+Validation errors (HTTP 422) include a `detail` array with field-level messages, as
+produced by Pydantic and FastAPI's default exception handler.
 
 ---
 
 ## Versioning
 
-<!-- Describe API versioning strategy: URL path versioning (v1, v2), deprecation policy, changelog -->
+The API is currently **unversioned** — paths like `/companies` are used directly
+rather than `/v1/companies`. URL versioning will be introduced if a breaking change
+is required; the existing paths will remain accessible during any deprecation window.
 
 ---
 
 ## OpenAPI / Swagger
 
-<!-- Describe auto-generated OpenAPI docs available at /docs and /redoc -->
+FastAPI auto-generates interactive API documentation:
+
+- **Swagger UI** — `https://finsight-api.onrender.com/docs`
+- **ReDoc** — `https://finsight-api.onrender.com/redoc`
+- **OpenAPI JSON** — `https://finsight-api.onrender.com/openapi.json`

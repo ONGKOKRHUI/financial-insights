@@ -61,7 +61,7 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-1.5 text-xs font-medium text-blue-300 mb-6">
             <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-            Phase 1 MVP — Now Live
+            Phase 3 — API Now Live
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
             Financial Data API for
@@ -79,10 +79,16 @@ export default function HomePage() {
               Explore Companies →
             </Link>
             <Link
-              href="/companies/MAYBANK"
+              href="/api-docs"
               className="rounded-lg border border-white/20 bg-white/5 px-8 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
             >
-              View Demo: MAYBANK
+              View API Docs →
+            </Link>
+            <Link
+              href="/companies/MAYBANK"
+              className="rounded-lg border border-white/10 bg-white/5 px-8 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 transition-colors"
+            >
+              Demo: MAYBANK
             </Link>
           </div>
         </div>

@@ -1,56 +1,65 @@
 # Authentication
 
-!!! success "Current MVP"
-    API key-based authentication is available from Phase 3. OAuth2 with JWT and RBAC are added in Phase 4.
+!!! success "Phase 3 — Open API"
+    The FinSight API is currently **open**. No authentication header, API key,
+    or token is required to call any endpoint. All requests are accepted as-is.
 
 ---
 
-## Authentication Methods
+## Current State (Phase 3)
 
-### API Key (Developer API)
+Send requests directly — no headers needed:
 
-Include your API key in every request via the `X-API-Key` header:
+```bash
+curl "https://finsight-api.onrender.com/companies/MAYBANK/summary"
+```
+
+```python
+import httpx
+res = httpx.get("https://finsight-api.onrender.com/companies/MAYBANK/summary")
+print(res.json())
+```
+
+---
+
+## Planned: API Key Authentication (Phase 4)
+
+API key gating will be introduced in Phase 4 alongside the RBAC system. When
+implemented:
+
+- Keys will be passed via an `X-API-Key` request header.
+- Free-tier keys will be rate-limited (10 req/min, 100 req/day).
+- Paid-tier keys will have higher limits (300 req/min, 50,000 req/day).
+- The endpoint paths and response shapes will **not change**.
+
+Example of future usage (Phase 4+):
 
 ```bash
 curl -H "X-API-Key: YOUR_API_KEY" \
-     https://api.finsight.dev/v1/companies
+     "https://finsight-api.onrender.com/companies"
 ```
 
-### JWT (Dashboard / Session)
+---
 
-!!! info "Planned Architecture (Future Phases)"
-    JWT-based session auth for the web dashboard is implemented in Phase 4.
+## Planned: JWT Session Auth (Phase 4)
 
-<!-- Describe OAuth2 password flow, JWT claims structure, HttpOnly cookie handling -->
+The web dashboard will use OAuth2 + JWT (stored in HttpOnly cookies) for
+session-based authentication and Role-Based Access Control (RBAC). This is
+separate from the developer API key and applies only to the browser dashboard.
+
+| Role        | Access Level                                            |
+|-------------|---------------------------------------------------------|
+| `anonymous` | Public landing page only                               |
+| `free`      | Basic company metrics, limited API calls               |
+| `paid`      | Full dashboard, deep analytics, unrestricted API       |
+| `admin`     | All resources + user management                        |
 
 ---
 
-## Obtaining an API Key
+## Security Guidance for Phase 4+
 
-<!-- Describe sign-up flow, key generation on dashboard, key rotation procedure -->
+When API keys are introduced, treat them as secrets:
 
----
-
-## Role-Based Access Control (RBAC)
-
-!!! info "Planned Architecture (Future Phases)"
-    RBAC with Keycloak or Auth0 is implemented in Phase 4.
-
-| Role | Access Level |
-|---|---|
-| `anonymous` | Public landing page only |
-| `free` | Basic company metrics, limited API |
-| `paid` | Full dashboard, deep analytics, full API |
-| `admin` | All resources + user management |
-
----
-
-## Token Expiry and Refresh
-
-<!-- Describe access token TTL (15 min), refresh token TTL (30 days), silent refresh flow -->
-
----
-
-## Security Best Practices
-
-<!-- Describe key storage guidance for developers: environment variables, never in client code -->
+- Store in environment variables, never in source code.
+- Use `NEXT_PUBLIC_` prefixes only for values intended to be public.
+- Rotate keys immediately if accidentally exposed.

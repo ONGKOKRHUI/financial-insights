@@ -1,107 +1,315 @@
 # Endpoints
 
-!!! success "Current MVP"
-    Financial data and company endpoints are available from Phase 3. Search and AI endpoints are Phase 3–5.
+!!! success "Phase 3 — Live"
+    All endpoints below are live at `https://finsight-api.onrender.com`.
+    No authentication is required.
+
+---
+
+## Health
+
+### `GET /health`
+
+Liveness probe. Returns HTTP 200 when the server is running.
+
+**Response**
+
+```json
+{ "status": "ok" }
+```
 
 ---
 
 ## Companies
 
-### `GET /v1/companies`
+### `GET /companies`
 
-List all tracked companies.
+Returns a summary list of all 8 covered companies.
 
-**Query Parameters**
+**Response** — array of `CompanySummary`
 
-| Parameter | Type | Description |
-|---|---|---|
-| `sector` | string | Filter by sector |
-| `limit` | int | Max results (default: 20) |
-| `offset` | int | Pagination offset |
+```json
+[
+  {
+    "ticker": "MAYBANK",
+    "name": "Malayan Banking Berhad",
+    "sector": "Financials",
+    "market_cap_bln": 102.4,
+    "currency": "MYR"
+  },
+  ...
+]
+```
 
-**Response**
+---
+
+### `GET /companies/{ticker}`
+
+Returns the full company profile for a single company.
+
+**Path Parameters**
+
+| Parameter | Type   | Description                          |
+|-----------|--------|--------------------------------------|
+| `ticker`  | string | KLSE ticker symbol, e.g. `MAYBANK`   |
+
+**Response** — `CompanyDetail`
 
 ```json
 {
-  "success": true,
-  "data": [
-    { "id": 1, "name": "Maybank", "ticker": "1155", "sector": "Banking" }
+  "ticker": "MAYBANK",
+  "name": "Malayan Banking Berhad",
+  "sector": "Financials",
+  "industry": "Banking",
+  "description": "Maybank is Malaysia's largest bank...",
+  "market_cap_bln": 102.4,
+  "employees": 43000,
+  "founded": 1960,
+  "headquarters": "Kuala Lumpur, Malaysia",
+  "website": "https://www.maybank.com",
+  "currency": "MYR",
+  "exchange": "KLSE"
+}
+```
+
+**Errors**
+
+| Status | Condition                    |
+|--------|------------------------------|
+| 404    | Ticker not found in database |
+
+---
+
+### `GET /companies/{ticker}/summary`
+
+Returns the latest-year KPI snapshot for a company.
+
+**Path Parameters**
+
+| Parameter | Type   | Description             |
+|-----------|--------|-------------------------|
+| `ticker`  | string | KLSE ticker symbol      |
+
+**Response** — `KPISummary`
+
+```json
+{
+  "ticker": "MAYBANK",
+  "revenue_bln": 30.2,
+  "net_income_bln": 9.1,
+  "eps": 0.86,
+  "pe_ratio": 12.4,
+  "roe_pct": 10.8,
+  "roace_pct": 8.2,
+  "debt_to_equity": 0.92,
+  "dividend_yield_pct": 5.8,
+  "fiscal_year": 2024
+}
+```
+
+**Errors**
+
+| Status | Condition               |
+|--------|-------------------------|
+| 404    | Ticker not found        |
+
+---
+
+### `GET /companies/{ticker}/qualitative`
+
+Returns the latest qualitative insight: a future outlook paragraph and a list
+of key strategic events.
+
+**Path Parameters**
+
+| Parameter | Type   | Description         |
+|-----------|--------|---------------------|
+| `ticker`  | string | KLSE ticker symbol  |
+
+**Response** — `QualitativeInsight`
+
+```json
+{
+  "ticker": "MAYBANK",
+  "fiscal_year": 2024,
+  "future_outlook": "Maybank remains well-positioned to leverage ASEAN growth...",
+  "key_strategic_events": [
+    "Expanded ASEAN digital banking operations",
+    "Launched M25+ strategic plan targeting RM100bn market cap"
   ]
 }
 ```
 
 ---
 
-### `GET /v1/companies/{id}`
-
-Get a single company profile.
-
-<!-- Describe response fields: name, ticker, exchange, sector, listing_date, description -->
-
----
-
 ## Financial Statements
 
-### `GET /v1/companies/{id}/income-statement`
+### `GET /financials/{ticker}/income-statement`
 
-| Parameter | Type | Description |
-|---|---|---|
-| `period` | string | e.g. `Q3-2025`, `FY2024` |
+Returns 5 years of annual income statement data for a company.
 
-<!-- Describe response: all income statement line items with period metadata -->
+**Path Parameters**
+
+| Parameter | Type   | Description         |
+|-----------|--------|---------------------|
+| `ticker`  | string | KLSE ticker symbol  |
+
+**Response** — `IncomeStatementResponse`
+
+```json
+{
+  "ticker": "MAYBANK",
+  "name": "Malayan Banking Berhad",
+  "currency": "MYR",
+  "data": [
+    {
+      "fiscal_year": 2020,
+      "revenue_bln": 24.1,
+      "gross_profit_bln": 18.3,
+      "operating_income_bln": 10.2,
+      "net_income_bln": 6.5,
+      "eps": 0.61,
+      "gross_margin_pct": 75.9,
+      "operating_margin_pct": 42.3,
+      "net_margin_pct": 27.0
+    },
+    ...
+  ]
+}
+```
+
+Data entries are ordered by `fiscal_year` ascending (oldest first).
 
 ---
 
-### `GET /v1/companies/{id}/balance-sheet`
+### `GET /financials/{ticker}/balance-sheet`
 
-<!-- Describe balance sheet endpoint -->
+Returns 5 years of annual balance sheet data.
+
+**Path Parameters**
+
+| Parameter | Type   | Description         |
+|-----------|--------|---------------------|
+| `ticker`  | string | KLSE ticker symbol  |
+
+**Response** — `BalanceSheetResponse`
+
+```json
+{
+  "ticker": "CIMB",
+  "name": "CIMB Group Holdings Berhad",
+  "currency": "MYR",
+  "data": [
+    {
+      "fiscal_year": 2024,
+      "total_assets_bln": 652.3,
+      "total_liabilities_bln": 596.1,
+      "total_equity_bln": 56.2,
+      "cash_and_equivalents_bln": 38.4,
+      "total_debt_bln": 18.7
+    }
+  ]
+}
+```
 
 ---
 
-### `GET /v1/companies/{id}/cash-flow`
+### `GET /financials/{ticker}/cash-flow`
 
-<!-- Describe cash flow endpoint -->
+Returns 5 years of annual cash flow data.
 
----
+**Path Parameters**
 
-### `GET /v1/companies/{id}/ratios`
+| Parameter | Type   | Description         |
+|-----------|--------|---------------------|
+| `ticker`  | string | KLSE ticker symbol  |
 
-<!-- Describe financial ratios endpoint: P/E, ROE, debt-to-equity, current ratio -->
+**Response** — `CashFlowResponse`
+
+```json
+{
+  "ticker": "TNB",
+  "name": "Tenaga Nasional Berhad",
+  "currency": "MYR",
+  "data": [
+    {
+      "fiscal_year": 2024,
+      "operating_cash_flow_bln": 12.4,
+      "capital_expenditure_bln": -6.8,
+      "free_cash_flow_bln": 5.6,
+      "dividends_paid_bln": -2.1
+    }
+  ]
+}
+```
 
 ---
 
 ## Search
 
-!!! info "Planned Architecture (Future Phases)"
-    Hybrid semantic search is implemented in Phase 3.
+### `POST /search`
 
-### `POST /v1/search`
+Unified payload-based query endpoint. Send `ticker`, `statement_type`, and
+an optional `fiscal_year` to retrieve any financial record from a single
+endpoint. Omit `fiscal_year` to receive the most recent available year.
+
+**Request Body**
+
+| Field            | Type    | Required | Description                                                       |
+|------------------|---------|----------|-------------------------------------------------------------------|
+| `ticker`         | string  | yes      | KLSE ticker symbol                                               |
+| `statement_type` | enum    | yes      | `income_statement` \| `balance_sheet` \| `cash_flow` \| `kpi` \| `qualitative` |
+| `fiscal_year`    | integer | no       | Specific year; omit for latest                                   |
+
+**Example Request**
+
+```bash
+curl -X POST "https://finsight-api.onrender.com/search" \
+  -H "Content-Type: application/json" \
+  -d '{"ticker": "MAYBANK", "statement_type": "income_statement"}'
+```
+
+**Response** — `SearchResponse`
 
 ```json
 {
-  "query": "Maybank net interest margin 2024",
-  "company_ids": [1, 2],
-  "top_k": 5
+  "ticker": "MAYBANK",
+  "statement_type": "income_statement",
+  "fiscal_year": 2024,
+  "data": {
+    "fiscal_year": 2024,
+    "revenue_bln": 30.2,
+    "gross_profit_bln": 22.8,
+    "operating_income_bln": 12.4,
+    "net_income_bln": 9.1,
+    "eps": 0.86,
+    "gross_margin_pct": 75.5,
+    "operating_margin_pct": 41.1,
+    "net_margin_pct": 30.1
+  }
 }
 ```
 
-<!-- Describe response: ranked document chunks with scores, source filing metadata -->
+**Errors**
+
+| Status | Condition                              |
+|--------|----------------------------------------|
+| 404    | Ticker not found                       |
+| 422    | Invalid `statement_type` value         |
 
 ---
 
-## AI Analysis
+## Covered Tickers
 
-!!! info "Planned Architecture (Future Phases)"
-    AI analysis endpoints are implemented in Phase 3 and extended in Phase 5.
+The following ticker symbols are valid for all endpoints:
 
-### `POST /v1/ai/summarize`
-
-<!-- Describe LLM summary generation: company_id, period, summary_type (brief/detailed) -->
-
-### `POST /v1/ai/compare`
-
-<!-- Describe multi-company comparison: company_ids[], period, metrics[] -->
-
-### `POST /v1/ai/chat`
-
-<!-- Describe chat endpoint for the agentic system: message, session_id, context -->
+| Ticker    | Company                    | Sector                     |
+|-----------|----------------------------|----------------------------|
+| MAYBANK   | Malayan Banking Berhad     | Financials                 |
+| CIMB      | CIMB Group Holdings Berhad | Financials                 |
+| TNB       | Tenaga Nasional Berhad     | Utilities                  |
+| PETRONAS  | Petroliam Nasional Berhad  | Energy                     |
+| MAXIS     | Maxis Berhad               | Communication Services     |
+| TM        | Telekom Malaysia Berhad    | Communication Services     |
+| GENTING   | Genting Berhad             | Consumer Discretionary     |
+| SUNWAY    | Sunway Berhad              | Real Estate                |

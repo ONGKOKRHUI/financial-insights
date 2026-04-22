@@ -6,6 +6,35 @@ from database import engine, SessionLocal
 from models import Base
 from seed import seed_if_empty
 from routers import companies, financials
+from routers import search
+
+TAGS_METADATA = [
+    {
+        "name": "health",
+        "description": "Liveness and readiness probes.",
+    },
+    {
+        "name": "companies",
+        "description": (
+            "Company profiles, KPI summaries, and qualitative insights for the 8 "
+            "covered Malaysian Blue-Chip companies."
+        ),
+    },
+    {
+        "name": "financials",
+        "description": (
+            "Annual financial statement history — income statements, balance sheets, "
+            "and cash flow statements. Five years of data per company."
+        ),
+    },
+    {
+        "name": "search",
+        "description": (
+            "Unified payload-based query endpoint. POST a ticker, statement type, "
+            "and optional fiscal year to retrieve any financial record in one call."
+        ),
+    },
+]
 
 
 @asynccontextmanager
@@ -23,12 +52,14 @@ app = FastAPI(
     title="FinSight API",
     description=(
         "Financial data API for Malaysian Blue-Chip companies. "
-        "Provides company details, KPI summaries, income statements, "
-        "balance sheets, cash flows, and qualitative insights."
+        "Provides company profiles, KPI summaries, income statements, "
+        "balance sheets, cash flows, qualitative insights, and a unified "
+        "search endpoint — all without authentication in Phase 3."
     ),
-    version="0.2.0",
+    version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_tags=TAGS_METADATA,
     lifespan=lifespan,
 )
 
@@ -39,18 +70,19 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 # --- Routers -------------------------------------------------------------
 app.include_router(companies.router)
 app.include_router(financials.router)
+app.include_router(search.router)
 
 
 @app.get("/", tags=["health"])
 def root():
-    return {"status": "ok", "service": "FinSight API", "version": "0.2.0"}
+    return {"status": "ok", "service": "FinSight API", "version": "1.0.0"}
 
 
 @app.get("/health", tags=["health"])

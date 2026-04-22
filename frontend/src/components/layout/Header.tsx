@@ -7,7 +7,7 @@ import { useSearchStore } from "@/stores/searchStore";
 
 const NAV_LINKS = [
   { href: "/companies", label: "Companies" },
-  { href: "/docs", label: "API Docs" },
+  { href: "/api-docs", label: "API Docs" },
 ];
 
 export default function Header() {
