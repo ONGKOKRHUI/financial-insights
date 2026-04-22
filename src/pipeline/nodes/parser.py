@@ -98,11 +98,11 @@ def parse_pdf(state: dict) -> dict:
             markdown_text = asyncio.run(_llamaparse(pdf_path))
             logger.info("LlamaParse succeeded (%d chars)", len(markdown_text))
         except Exception as exc:
-            logger.warning("LlamaParse failed, falling back to PyMuPDF: %s", exc)
             errors.append(f"LlamaParse failed: {exc}")
-
-    if not markdown_text:
-        logger.info("Using PyMuPDF fallback for %s", pdf_path)
+            logger.error("LlamaParse failed for %s: %s", pdf_path, exc)
+            raise RuntimeError(f"LlamaParse failed and no fallback is allowed when LLAMA_CLOUD_API_KEY is set: {exc}") from exc
+    else:
+        logger.info("LLAMA_CLOUD_API_KEY not set — using PyMuPDF for %s", pdf_path)
         markdown_text = _pymupdf_fallback(pdf_path)
 
     if not markdown_text:

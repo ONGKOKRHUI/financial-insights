@@ -1,0 +1,101 @@
+(venv) PS C:\Users\HP\Documents\repos\financial-insights> python tests/debug_extraction.py --pdf "src/scraper/data/raw/SUNWAY/SUNWAY_2021_Q1.pdf"
+Extracting text from PDF: src/scraper/data/raw/SUNWAY/SUNWAY_2021_Q1.pdf
+  Parse method: LlamaParse
+  [LlamaParse] Uploading PDF to LlamaCloud …
+INFO httpx: HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+INFO httpx: HTTP Request: POST https://api.cloud.llamaindex.ai/api/v2/parse "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-j2ikd15z11myn33xn36qwmgi3ulq "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-j2ikd15z11myn33xn36qwmgi3ulq "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-j2ikd15z11myn33xn36qwmgi3ulq "HTTP/1.1 200 OK"
+INFO httpx: HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-j2ikd15z11myn33xn36qwmgi3ulq?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] LlamaParse returned 150,812 chars (Markdown)
+
+  Metadata : {'ticker': 'SUNWAY', 'fiscal_year': 2021, 'report_period': 'Q1'}
+  Raw text : 150,812 chars
+
+INFO pipeline.nodes.router: route_content: passing full document (150812 chars) to both branches
+  [Router] table_markdown=150,812 chars | narrative_markdown=150,812 chars
+
+[Quantitative Extraction]
+
+  >> Income Statement  (Full Document: 150,812 chars)
+INFO google_genai.models: AFC is enabled with max remote calls: 10.
+WARNING pipeline.nodes.quantitative: Unrecognised unit header 'sen' — no multiplier applied
+    [OK]   revenue_bln: 1.016743
+    [OK]   operating_income_bln: 0.049056
+    [OK]   net_income_bln: 0.070377
+    [OK]   eps: 1.01
+    [NULL] ['gross_profit_bln', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+
+  >> Balance Sheet  (Full Document: 150,812 chars)
+INFO google_genai.models: AFC is enabled with max remote calls: 10.
+    [OK]   total_assets_bln: 20.769342
+    [OK]   total_liabilities_bln: 10.36656
+    [OK]   total_equity_bln: 10.402782
+    [OK]   cash_and_equivalents_bln: 1.944102
+    [OK]   total_debt_bln: 6.821673
+
+  >> Cash Flow Statement  (Full Document: 150,812 chars)
+INFO google_genai.models: AFC is enabled with max remote calls: 10.
+WARNING pipeline.nodes.quantitative: Could not parse raw_value '-': could not convert string to float: '-'
+    [OK]   operating_cash_flow_bln: 0.049654
+    [OK]   capital_expenditure_bln: -0.080873
+    [NULL] ['free_cash_flow_bln', 'dividends_paid_bln']
+
+  >> KPI Summary  (Full Document: 150,812 chars)
+INFO google_genai.models: AFC is enabled with max remote calls: 10.
+WARNING pipeline.nodes.quantitative: Unrecognised unit header 'sen' — no multiplier applied
+    [OK]   revenue_bln: 1.016743
+    [OK]   net_income_bln: 0.070377
+    [OK]   eps: 1.01
+    [NULL] ['pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative Extraction]  (window: 14,000 chars)
+INFO google_genai.models: AFC is enabled with max remote calls: 10.
+  [OK]   future_outlook: Despite the ongoing impact of the pandemic on leisure and hospitality, the Group's other business segments are resilient and expected to deliver satisfactory results. Management is hopeful that the ma   
+  [OK]   key_strategic_events: ["Completed a Rights Issue and issued Irredeemable Convertible Preference Shares (ICPS)"]
+(venv) PS C:\Users\HP\Documents\repos\financial-insights> 
+
+
+
+Ground Truth Match (Gemini)
+"""
+1. Income Statement: Perfect Match 🎯
+Revenue: 1.016743 (Matches exactly: 1,016,743 RM'000)
+
+Operating Income: 0.049056 (Matches exactly: 49,056 RM'000)
+
+Net Income: 0.070377 (Matches exactly: 70,377 RM'000. Note: It pulled Total Profit rather than Profit Attributable to Owners (58,450), which is completely valid as both are Net Income.)
+
+EPS: 1.01 (Matches exactly: 1.01 sen)
+
+Nulls: Accurately returned NULL for margins and gross profit, which aren't explicitly stated.
+
+2. Balance Sheet: Perfect Match 🎯
+Total Assets: 20.769342 (Matches exactly: 20,769,342 RM'000)
+
+Total Liabilities: 10.36656 (Matches exactly: 10,366,560 RM'000)
+
+Total Equity: 10.402782 (Matches exactly: 10,402,782 RM'000)
+
+Cash: 1.944102 (Matches exactly: 1,944,102 RM'000)
+
+Total Debt: 6.821673 (Matches exactly: 6,821,673 RM'000. This is hugely impressive. The LLM didn't just look at the Balance Sheet face; it accurately found the "Total Borrowings" line in the notes!)
+
+3. Cash Flow Statement: Great, with one minor parser bug 🛠️
+Operating Cash Flow: 0.049654 (Matches exactly: 49,654 RM'000)
+
+Capex: -0.080873 (Matches exactly: (80,873) RM'000)
+
+Dividends Paid: NULL (Ground truth was -0.001066 for non-controlling interests).
+
+What happened with Dividends? Look at your logs: WARNING... Could not parse raw_value '-': could not convert string to float: '-'
+In accounting, a dash (-) means zero. The LLM successfully extracted the dash from the table, but Python's float("-") crashes, so your normalize_financial_data function safely caught the error and returned None.
+
+4. KPI & Qualitative: Perfect Match 🎯
+The KPI numbers correctly mirror the Income Statement.
+
+The Future Outlook is a great summary.
+
+The Strategic Event correctly identified the Rights Issue mentioned in Note B7.1.
+"""

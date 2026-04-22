@@ -1,3 +1,7 @@
+"""
+Test Gemini API key is working
+"""
+
 import requests
 import os
 from dotenv import load_dotenv
