@@ -2,7 +2,7 @@
 
 !!! success "Phase 2 — Implemented"
     The full automated ETL pipeline — PDF ingestion → AI-driven parsing → PostgreSQL UPSERT — is live in Phase 2.  
-    Orchestrated by **Apache Airflow** (LocalExecutor), powered by **LangGraph + Google Gemini**, and traced end-to-end with **Langfuse**.
+    Orchestrated by **Apache Airflow** (LocalExecutor), powered by **LangGraph + Google Gemini 2.0 Flash**, and traced end-to-end with **Langfuse**.
 
 ---
 
@@ -12,15 +12,16 @@ The FinSight ETL pipeline converts raw quarterly/annual report PDFs downloaded b
 
 ```
 Scraper (Phase 1)          ETL Pipeline (Phase 2)
-──────────────────         ─────────────────────────────────────────────────
+──────────────────         ──────────────────────────────────────────────────────
 Playwright → PDF           Airflow DAG
   src/scraper/             ├── check_new_pdfs      — scan for unprocessed PDFs
   data/raw/<TICKER>/       ├── trigger_parse_pipeline
     *.pdf                  │     └── LangGraph state machine
-                           │           parse_pdf → route_content
+                           │           parse_pdf → route_content (pass-through)
                            │             ├── extract_quantitative  (Gemini)
                            │             └── extract_qualitative   (Gemini)
                            │                   └── merge_and_validate
+                           │                         └── normalize_financial_data
                            └── load_to_postgres   — UPSERT to finsight DB
 ```
 
@@ -30,17 +31,20 @@ Playwright → PDF           Airflow DAG
 
 ```mermaid
 flowchart LR
-    A[PDF Files\nsrc/scraper/data/raw/] --> B[LlamaParse\nor PyMuPDF]
-    B --> C[route_content\nTable vs Narrative split]
-    C --> D[extract_quantitative\nGemini structured output]
-    C --> E[extract_qualitative\nGemini summarisation]
+    A[PDF Files\nsrc/scraper/data/raw/] --> B[LlamaParse\nwith Markdown\nparsing_instruction]
+    B --> B2[PyMuPDF fallback\nif API key absent]
+    B --> C[route_content\nPass-through: full\nMarkdown → both branches]
+    B2 --> C
+    C --> D[extract_quantitative\nGemini — raw string\nextraction via FinancialValue]
+    C --> E[extract_qualitative\nGemini — narrative\nsummarisation]
     D --> F[merge_and_validate\nPydantic FinancialReportPayload]
     E --> F
-    F --> G{Valid?}
-    G -- Yes --> H[PostgreSQL UPSERT\nincome_statements\nbalance_sheets\ncash_flows\nqualitative_insights\nkpi_summaries]
-    G -- Partial --> H
-    G -- Error --> I[pipeline_runs\nstatus = error]
-    H --> J[(finsight DB)]
+    F --> G[normalize_financial_data\nPython string→float\nconversion]
+    G --> H{Valid?}
+    H -- Yes --> I[PostgreSQL UPSERT\nincome_statements\nbalance_sheets\ncash_flows\nqualitative_insights\nkpi_summaries]
+    H -- Partial --> I
+    H -- Error --> J[pipeline_runs\nstatus = error]
+    I --> K[(finsight DB)]
 ```
 
 ---
@@ -66,7 +70,7 @@ check_new_pdfs >> trigger_parse_pipeline >> load_to_postgres
 | Task | Operator | What it does |
 |---|---|---|
 | `check_new_pdfs` | `PythonOperator` | Scans `FINSIGHT_RAW_DIR` for PDFs not yet in `pipeline_runs` with `status='success'`. Pushes list via XCom. |
-| `trigger_parse_pipeline` | `PythonOperator` | Runs `pipeline.graph.run_pipeline(pdf_path)` for each unprocessed PDF. Pushes validated JSON payloads via XCom. |
+| `trigger_parse_pipeline` | `PythonOperator` | Runs `pipeline.graph.run_pipeline(pdf_path)` for each unprocessed PDF. Calls `normalize_financial_data()` on the result. Pushes validated JSON payloads via XCom. |
 | `load_to_postgres` | `PythonOperator` | Calls `db.loader.upsert_report(payload)` for each payload; marks files as `success` or `error` in `pipeline_runs`. |
 
 ---
@@ -84,15 +88,41 @@ parse_pdf → route_content → [extract_quantitative, extract_qualitative] → 
 
 | Node | File | Description |
 |---|---|---|
-| `parse_pdf` | `nodes/parser.py` | Calls LlamaCloud async API (`tier=agentic`) → Markdown. Falls back to PyMuPDF if API unavailable. Derives ticker/year/period from filename. |
-| `route_content` | `nodes/router.py` | Regex heuristic splits Markdown into `table_markdown` (financial tables) and `narrative_markdown` (MD&A, outlook). |
-| `extract_quantitative` | `nodes/quantitative.py` | Gemini `with_structured_output()` extracts Income Statement, Balance Sheet, Cash Flow, KPI Summary. All values in **MYR billions**. Langfuse callback attached. |
-| `extract_qualitative` | `nodes/qualitative.py` | RecursiveCharacterTextSplitter + Gemini summarisation → `future_outlook` string + `key_strategic_events` JSON array. Langfuse callback attached. |
-| `merge_and_validate` | `nodes/merger.py` | Assembles `FinancialReportPayload` Pydantic model. On validation error, appends to `errors` and returns partial payload. |
+| `parse_pdf` | `nodes/parser.py` | Calls LlamaCloud async API (`tier=agentic`) with a strict Markdown `parsing_instruction` → clean Markdown. Falls back to PyMuPDF if API key absent. Derives ticker/year/period from filename. |
+| `route_content` | `nodes/router.py` | **Pass-through node.** Assigns the full `markdown_text` to both `table_markdown` and `narrative_markdown`. No regex splitting — Gemini 2.0 Flash's 1M-token context window locates tables itself. |
+| `extract_quantitative` | `nodes/quantitative.py` | Gemini `with_structured_output()` extracts Income Statement, Balance Sheet, Cash Flow, KPI Summary as **raw strings** (`FinancialValue`). Receives the full document. Langfuse callback attached. |
+| `extract_qualitative` | `nodes/qualitative.py` | Pattern-matching locates MD&A / Outlook / Chairman sections, then Gemini summarises → `future_outlook` string + `key_strategic_events` JSON array. Langfuse callback attached. |
+| `merge_and_validate` | `nodes/merger.py` | Assembles `FinancialReportPayload` Pydantic model from both branches. On validation error, appends to `errors` and returns partial payload. |
+
+### Two-Stage Financial Data Extraction
+
+Quantitative extraction is now a **two-stage pipeline** to eliminate LLM arithmetic errors:
+
+**Stage 1 — LLM extracts raw strings (zero arithmetic)**
+
+The LLM is given the full document and asked to return values exactly as printed, alongside the unit header from the table:
+
+```python
+class FinancialValue(BaseModel):
+    raw_value: Optional[str]    # e.g. "(1,350,348)" or "12,345.00"
+    unit_header: Optional[str]  # e.g. "RM 000", "MYR Millions", "sen"
+```
+
+Each field in `_IncomeStatementExtraction`, `_BalanceSheetExtraction`, `_CashFlowExtraction`, and `_KPIExtraction` is typed as `Optional[FinancialValue]`.
+
+**Stage 2 — Python normalises to MYR billions (deterministic)**
+
+`normalize_financial_data(extracted_data)` recursively walks the LLM JSON and converts every `FinancialValue` dict to a float:
+
+| Step | Logic |
+|---|---|
+| Strip commas | `"12,345.00"` → `12345.0` |
+| Parentheses → negative | `"(1,350,348)"` → `-1350348.0` |
+| Unit multiplier | `RM '000` → ÷ 1,000,000 · `MYR Millions` → ÷ 1,000 · `Billions` → ÷ 1 |
 
 ### Financial Data Normalisation
 
-- All monetary values are extracted in **MYR billions** (e.g., 12,345 MYR million → 12.345)
+- All monetary values reach the DB as **MYR billions** floats (e.g., 12,345 RM'000 → 0.012345)
 - Fiscal year derived from filename `{TICKER}_{YEAR}_{QUARTER}.pdf`
 - Percentages stored as 0–100 (not 0–1)
 - `key_strategic_events` stored as a JSON-serialised string in PostgreSQL
@@ -127,7 +157,7 @@ Set `PIPELINE_ENGINE` in `.env`:
 
 | Value | Behaviour |
 |---|---|
-| `langgraph` (default) | Full LangGraph state machine: Router → Quant/Qual → Merge |
+| `langgraph` (default) | Full LangGraph state machine: Parser → Pass-through Router → Quant/Qual → Merge → Normalise |
 | `dify` | Skips LangGraph nodes; sends parsed Markdown to a Dify Workflow API endpoint (`DIFY_API_URL`) and maps the JSON response to the DB loader |
 
 Dify client lives at `src/pipeline/dify_client.py`.

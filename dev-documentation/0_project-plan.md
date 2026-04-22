@@ -34,14 +34,14 @@ Here is a comprehensive, 6-month Product Requirements Document (PRD) and iterati
 - **Milestone:** An automated, containerized pipeline that turns raw PDFs into clean, structured data warehoused in a PostgreSQL database.
 - IMPORTANT: Heavy studying and understanding of Financial reports of different companies and know which are important insights to retrieve. Use them in the post processing to get important data only. Build the full pipeline and stored in Postgres Database
 
-### Phase 3: Advanced RAG, LLM Analysis & Backend API (Weeks 8-11) (Monash W8-11)
+### Phase 3: Backend API Hardening, Testing & Documentation (Weeks 8-11) (Monash W8-11)
 
-**Focus:** API design, vector databases, and generative AI integration.
+**Focus:** Production-quality REST API, automated test coverage, and developer-facing documentation.
 
-- **What to Build:** Develop the core backend logic. Pass the cleaned JSON data to an LLM via an API call to generate a summarized JSON containing the financial analysis. Build out RESTful API endpoints that expose both the raw extracted data and the LLM summaries so external users can integrate it into their trading models.
-- **What to Learn & Tools to Use:** Build the backend using **FastAPI**. Implement **pgvector** as your primary vector store for embeddings, and integrate **Elasticsearch** alongside it to build a highly effective hybrid search system (combining keyword and semantic retrieval).
-- **Milestone:** A robust FastAPI backend capable of querying precise financial metrics and delivering AI-generated insights.
-- IMPORTANT: build the backend pipeline for advanced RAG search when a user query + parameter comes in. build the RESTful API for information retrieval by the user and test that the API is workingNeed to write the documentations on how to use the API. 
+- **What to Build:** Harden the existing FastAPI backend into a production-quality API product. Add a unified `POST /search` endpoint for payload-based queries. Write a `pytest` test suite (13 tests) covering all endpoints using an in-memory SQLite fixture — no live database required. Build an interactive `/api-docs` page on the Next.js frontend with live "Try It" widgets. Update all MkDocs API reference pages with accurate content and real working examples.
+- **What to Learn & Tools to Use:** Build and test with **FastAPI**, **pytest**, **httpx**, and **pytest-asyncio**. Document with **MkDocs**. Build the frontend docs page with **Next.js** and **Tailwind CSS**.
+- **Milestone:** A robust FastAPI backend capable of querying precise financial metrics, with tests proving it works, and documentation explaining how to use it.
+- IMPORTANT: build the RESTful API for information retrieval by the user and test that the API is working. Write the documentation on how to use the API. pgvector and Elasticsearch are **not** in scope for this phase — they are deferred to Phase 5 for the RAG/chatbot pipeline.
 ***builds the API product.***
 
 ### Phase 4: Full-Stack Dashboard, Auth & RBAC (Weeks 12-16) (Monash W12-Sem break W2)
@@ -53,13 +53,14 @@ Here is a comprehensive, 6-month Product Requirements Document (PRD) and iterati
 - **Milestone:** A complete, secure web application with restricted routes and a functioning freemium model.
 - IMPORTANT: now the Restful API is built, the visualisation is done calling this API. build the visualizations for paid users. build the RBAC systems with strict and production-grade security. builds the **user application that consumes that API**.
 
-### Phase 5: Agentic Workflows & AI Observability (Weeks 17-19) (Sem break W3-Monash W1)
+### Phase 5: Agentic Workflows, RAG Pipeline & AI Observability (Weeks 17-19) (Sem break W3-Monash W1)
 
-**Focus:** Autonomous AI, Model Context Protocol (MCP), and system monitoring.
+**Focus:** Autonomous AI, vector/hybrid search infrastructure, Model Context Protocol (MCP), and system monitoring.
 
-- **What to Build:** Evolve the simple LLM calls into a multi-agent system. Introduce an AI chat interface on the dashboard where users can ask complex questions. Implement agent skills (via MCP) so the AI can dynamically decide whether to retrieve text from the RAG pipeline or write SQL queries against the financial data tables. Integrate observability tools to track token usage, cost, and latency.
-- **What to Learn & Tools to Use:** Utilize **LangGraph** to orchestrate the agent routing and decision-making. Implement **Langfuse** for critical AI observability and structured logging. Learn the new **Model Context Protocol (MCP)** standards to build secure tool-use capabilities. * **Milestone:** A highly observable, autonomous AI assistant integrated into the platform that can reason over the financial data.
-- IMPORTANT: Build AI Chatbots with Agentic Capabilities to call tools and use MCP. build observability using Langfuse to track API cost
+- **What to Build:** Evolve the simple LLM calls into a multi-agent system. Introduce an AI chat interface on the dashboard where users can ask complex questions in natural language. Implement agent skills (via MCP) so the AI can dynamically decide whether to retrieve text from the RAG pipeline or write SQL queries against the financial data tables. Build the hybrid search infrastructure that backs the RAG pipeline. Integrate observability tools to track token usage, cost, and latency.
+- **What to Learn & Tools to Use:** Utilize **LangGraph** to orchestrate agent routing and decision-making. Implement **Langfuse** for AI observability and structured logging. Learn the **Model Context Protocol (MCP)** for secure tool-use. Introduce **pgvector** to store vector embeddings for semantic search over financial text. Integrate **Elasticsearch** for keyword/BM25 search. Combine both via **Hybrid Search (RRF)** to give the LLM the best possible retrieval context.
+- **Milestone:** A highly observable, autonomous AI assistant integrated into the platform that can reason over financial data using a hybrid RAG pipeline.
+- IMPORTANT: Build AI Chatbots with Agentic Capabilities to call tools and use MCP. Build observability using Langfuse to track API cost. Implement pgvector + Elasticsearch hybrid search to back the RAG pipeline powering the chatbot.
 
 ### Phase 6: Machine Learning, MLOps & Production CI/CD (Weeks 21-24) (Monash W2-5)
 
