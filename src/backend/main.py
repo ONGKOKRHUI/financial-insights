@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal
 from models import Base
 from seed import seed_if_empty
-from routers import companies, financials
+from routers import companies, financials, jarvis
 
 
 @asynccontextmanager
@@ -39,13 +39,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],   # POST needed for /api/jarvis/voice
     allow_headers=["*"],
 )
 
 # --- Routers -------------------------------------------------------------
 app.include_router(companies.router)
 app.include_router(financials.router)
+app.include_router(jarvis.router)
 
 
 @app.get("/", tags=["health"])

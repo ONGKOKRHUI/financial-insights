@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 async function getCompanies(): Promise<CompanySummary[]> {
   const apiUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";

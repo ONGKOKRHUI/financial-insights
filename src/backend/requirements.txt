@@ -4,3 +4,14 @@ pydantic==1.10.26
 python-dotenv==1.0.1
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
+
+# ── Jarvis voice assistant (core — required for all ASR modes) ─────────────────
+python-multipart==0.0.9        # Required by FastAPI for UploadFile / multipart
+requests==2.32.3               # Used by jarvis_intent Dify client
+httpx>=0.27.0                  # Used by TTS service (Google Cloud TTS)
+google-generativeai>=0.8.0     # Cloud ASR (JARVIS_ASR_ENGINE=gemini)
+edge-tts>=6.1.12               # Local TTS (JARVIS_TTS_ENGINE=edge, no API key needed)
+silero-vad>=5.1                # Server-side voice activity detection (Phase 2)
+
+# NOTE: For local Whisper ASR (JARVIS_ASR_ENGINE=whisper), also run:
+#   pip install -r requirements-whisper.txt

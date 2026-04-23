@@ -21,9 +21,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finsight
       ALLOWED_ORIGINS: "http://localhost:3000"
+    volumes:
+      - whisper_cache:/root/.cache/whisper
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,3 +48,4 @@ services:
 
 volumes:
   postgres_data:
+  whisper_cache:
