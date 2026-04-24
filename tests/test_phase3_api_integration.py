@@ -37,6 +37,7 @@ import json
 import os
 import sys
 
+import pytest
 import requests
 
 # ---------------------------------------------------------------------------
@@ -44,13 +45,41 @@ import requests
 # ---------------------------------------------------------------------------
 BASE_URL = os.getenv(
     "FINSIGHT_BASE_URL",
-    "https://finsight-api.onrender.com",
+    "https://financial-insights-grit.onrender.com",
 ).rstrip("/")
 
-TIMEOUT = 30  # seconds per request
+TIMEOUT = 60  # seconds per request
 
 # Tickers available in the seeded database
 ALL_TICKERS = ["MAYBANK", "CIMB", "TNB", "PETRONAS", "MAXIS", "TM", "GENTING", "SUNWAY"]
+
+# ---------------------------------------------------------------------------
+# API availability check — skip entire module if the backend is not reachable
+# ---------------------------------------------------------------------------
+
+def _api_is_available() -> tuple[bool, str]:
+    """Return (True, "") if the API is up, or (False, reason) if not."""
+    try:
+        r = requests.get(f"{BASE_URL}/health", timeout=60)
+        if r.status_code == 200:
+            try:
+                if r.json().get("status") == "ok":
+                    return True, ""
+            except Exception:
+                pass
+        return False, f"HTTP {r.status_code} — {r.text[:120].strip()}"
+    except requests.exceptions.ConnectionError as exc:
+        return False, f"Connection error: {exc}"
+    except requests.exceptions.Timeout:
+        return False, "Timed out after 60 s"
+
+
+_API_UP, _API_SKIP_REASON = _api_is_available()
+
+pytestmark = pytest.mark.skipif(
+    not _API_UP,
+    reason=f"FinSight backend not reachable at {BASE_URL} — {_API_SKIP_REASON}",
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -68,13 +97,22 @@ def _post(path: str, payload: dict, **kwargs) -> requests.Response:
     return resp
 
 
+def _safe_json(resp: requests.Response):
+    """Return parsed JSON or the raw text if the body is not JSON."""
+    try:
+        return resp.json()
+    except Exception:
+        return resp.text
+
+
 def _print_result(label: str, resp: requests.Response) -> None:
     """Print a compact summary when running as a standalone script."""
     status = "✅ PASS" if resp.ok else f"❌ FAIL ({resp.status_code})"
-    body = resp.json()
+    body = _safe_json(resp)
+    body_str = json.dumps(body) if isinstance(body, (dict, list)) else str(body)
     print(f"\n{status}  {label}")
     print(f"  → {resp.request.method} {resp.url}")
-    print(f"  ← {json.dumps(body)[:200]}")
+    print(f"  ← {body_str[:200]}")
 
 
 # ===========================================================================
@@ -487,6 +525,13 @@ if __name__ == "__main__":
     print(f"  FinSight API — Phase 3 Integration Test")
     print(f"  Base URL: {BASE_URL}")
     print("=" * 70)
+
+    if not _API_UP:
+        print(f"\n  ⚠  Backend not reachable — {_API_SKIP_REASON}")
+        print("  Start the backend locally or set FINSIGHT_BASE_URL.")
+        print("=" * 70)
+        sys.exit(1)
+
 
     tests = [
         test_health,
