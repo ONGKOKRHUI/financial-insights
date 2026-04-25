@@ -136,7 +136,7 @@ export default function WaterfallChart({ data, currency }: Props) {
           <LabelList
             dataKey="value"
             position="top"
-            formatter={(v: string | number | undefined) => `${Number(v ?? 0).toFixed(1)}B`}
+            formatter={(v: string | number | null | undefined) => `${Number(v ?? 0).toFixed(1)}B`}
             style={{ fill: "#94a3b8", fontSize: 10 }}
           />
         </Bar>
