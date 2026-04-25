@@ -1,6 +1,6 @@
 """Password hashing and generation utilities for FinSight.
 
-All passwords are hashed with bcrypt (via passlib) before storage.
+All passwords are hashed with bcrypt before storage.
 The ``generate_secure_password`` helper is used during the Phase 4
 registration flow, where the system generates a strong password on
 behalf of the user and displays it exactly once in the UI.
@@ -9,10 +9,7 @@ behalf of the user and displays it exactly once in the UI.
 import hashlib
 import secrets
 
-from passlib.context import CryptContext
-
-# bcrypt with auto-selecting the best available backend
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import bcrypt
 
 
 def hash_password(plain: str) -> str:
@@ -24,7 +21,7 @@ def hash_password(plain: str) -> str:
     Returns:
         bcrypt hash string suitable for storage.
     """
-    return _pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -37,7 +34,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     Returns:
         True if the password matches, False otherwise.
     """
-    return _pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 def generate_secure_password(length: int = 20) -> str:

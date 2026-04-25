@@ -18,7 +18,10 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
+from dotenv import find_dotenv, load_dotenv
 from jose import JWTError, jwt
+
+load_dotenv(find_dotenv())
 
 SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production-use-openssl-rand-hex-32")
 ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
