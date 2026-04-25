@@ -130,7 +130,7 @@ export default function PeerRadarChart({ ticker, kpi }: Props) {
         <Tooltip
           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
           labelStyle={{ color: "#e2e8f0" }}
-          formatter={(value: number, name: string) => [`${value}/100`, name]}
+          formatter={(value, name) => [`${Number(value ?? 0)}/100`, String(name)]}
         />
       </RadarChart>
     </ResponsiveContainer>

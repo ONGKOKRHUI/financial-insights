@@ -111,11 +111,12 @@ export default function WaterfallChart({ data, currency }: Props) {
           cursor={{ fill: "rgba(255,255,255,0.04)" }}
           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
           labelStyle={{ color: "#e2e8f0" }}
-          formatter={(value: number, _name: string, props: { payload: WaterfallStep }) => {
-            const step = props.payload;
-            if (_name === "offset") return [null, null]; // hide spacer
-            const sign = step.isDeduction ? "−" : "";
-            return [`${sign}${currency} ${value.toFixed(2)}B`, step.label];
+          formatter={(value, name, props) => {
+            const step = (props as { payload?: WaterfallStep }).payload;
+            if (String(name) === "offset") return [null, null]; // hide spacer
+            const v = Number(value ?? 0);
+            const sign = step?.isDeduction ? "−" : "";
+            return [`${sign}${currency} ${v.toFixed(2)}B`, step?.label ?? String(name)];
           }}
         />
         {/* Invisible spacer bar — positions coloured bar at correct cumulative height */}
@@ -135,7 +136,7 @@ export default function WaterfallChart({ data, currency }: Props) {
           <LabelList
             dataKey="value"
             position="top"
-            formatter={(v: number) => `${v.toFixed(1)}B`}
+            formatter={(v: string | number | undefined) => `${Number(v ?? 0).toFixed(1)}B`}
             style={{ fill: "#94a3b8", fontSize: 10 }}
           />
         </Bar>

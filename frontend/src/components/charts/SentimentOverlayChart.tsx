@@ -93,10 +93,14 @@ export default function SentimentOverlayChart({ data }: Props) {
         <Tooltip
           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
           labelStyle={{ color: "#e2e8f0" }}
-          formatter={(value: number, name: string) => [
-            name === "sentiment" ? `${value}/100` : `MYR ${value.toFixed(1)}B`,
-            name === "sentiment" ? "AI Sentiment" : "Revenue",
-          ]}
+          formatter={(value, name) => {
+            const v = Number(value ?? 0);
+            const n = String(name);
+            return [
+              n === "sentiment" ? `${v}/100` : `MYR ${v.toFixed(1)}B`,
+              n === "sentiment" ? "AI Sentiment" : "Revenue",
+            ];
+          }}
         />
         <Legend
           formatter={(value) => (
