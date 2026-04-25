@@ -146,9 +146,16 @@ export default function WaterfallChart({ data, currency }: Props) {
           <LabelList
             dataKey="value"
             position="top"
-            formatter={(v: unknown): React.ReactNode => {
+            formatter={(v: unknown): string => {
               if (v === null || v === undefined || v === false) return "";
+
+              // Handle bigint explicitly (this is your current error)
+              if (typeof v === "bigint") return v.toString();
+
               const num = typeof v === "number" ? v : Number(v);
+
+              if (!Number.isFinite(num)) return "";
+
               return `${num.toFixed(1)}B`;
             }}
             style={{ fill: "#94a3b8", fontSize: 10 }}
