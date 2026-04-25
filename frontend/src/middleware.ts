@@ -1,19 +1,29 @@
 /**
- * Next.js Edge Middleware — route-level access control.
+ * Next.js Edge Middleware — global route-level access control.
  *
- * Runs at the edge (before the page is rendered) on every request
- * matching {@link config.matcher}.
+ * Runs at the edge (before the page is rendered) on every request that is
+ * not explicitly excluded by {@link config.matcher}.
+ *
+ * Public routes (no auth required)
+ * ---------------------------------
+ * - `/auth/login`
+ * - `/auth/register`
+ * - `/api/**`       (BFF routes handle their own auth)
+ * - `/_next/**`     (static assets)
+ * - `/favicon.ico`
  *
  * Protection rules
  * ----------------
- * | Path pattern     | Minimum role required |
- * |------------------|-----------------------|
- * | /dashboard/**    | paid OR admin         |
- * | /account         | free, paid, OR admin  |
- * | /admin/**        | admin only            |
+ * | Path pattern     | Rule                                             |
+ * |------------------|--------------------------------------------------|
+ * | ANY              | Unauthenticated → redirect to /auth/login        |
+ * | /auth/**         | Authenticated → redirect to / (already logged in)|
+ * | /dashboard/**    | Requires paid OR admin role                      |
+ * | /account/**      | Requires any authenticated role                  |
+ * | /admin/**        | Requires admin role only                         |
  *
- * Implementation
- * --------------
+ * Implementation note
+ * -------------------
  * The middleware reads the ``access_token`` HttpOnly cookie and decodes
  * the JWT payload **without verifying the signature** (Edge runtime does
  * not have access to the secret key).  Full cryptographic verification
@@ -51,30 +61,38 @@ export function middleware(req: NextRequest) {
   const role = (payload?.role as string) ?? null;
   const isAuthenticated = !!role;
 
-  // /admin/** — requires admin role
+  // Authenticated users visiting auth pages are sent to the main hub.
+  if (pathname.startsWith("/auth")) {
+    if (isAuthenticated) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  // Global gate — any unauthenticated request is redirected to login.
+  if (!isAuthenticated) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // /admin/** — requires admin role.
   if (pathname.startsWith("/admin")) {
     if (role !== "admin") {
       const url = req.nextUrl.clone();
-      url.pathname = isAuthenticated ? "/" : "/auth/login";
+      url.pathname = "/";
       return NextResponse.redirect(url);
     }
   }
 
-  // /dashboard/** — requires paid or admin role
+  // /dashboard/** — requires paid or admin role.
   if (pathname.startsWith("/dashboard")) {
     if (role !== "paid" && role !== "admin") {
       const url = req.nextUrl.clone();
-      url.pathname = isAuthenticated ? "/upgrade" : "/auth/login";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // /account — requires any authenticated role
-  if (pathname.startsWith("/account")) {
-    if (!isAuthenticated) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/auth/login";
-      url.searchParams.set("redirect", pathname);
+      url.pathname = "/upgrade";
       return NextResponse.redirect(url);
     }
   }
@@ -83,5 +101,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/account/:path*", "/admin/:path*"],
+  /*
+   * Match all request paths EXCEPT:
+   * - /api/**             (BFF route handlers)
+   * - /_next/static/**    (Next.js build assets)
+   * - /_next/image/**     (image optimisation service)
+   * - /favicon.ico
+   */
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

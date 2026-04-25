@@ -1,9 +1,9 @@
-# Dashboard
+# Dashboard & Pages
 
 !!! success "Phase 4 Live"
-    The full paid-tier interactive dashboard is implemented in Phase 4.
-    The basic public site with company profiles and free-tier charts
-    is live from Phase 1.
+    The entire application is now gated behind authentication.  The root `/`
+    is the authenticated main hub for all users.  The paid analytics dashboard
+    lives at `/dashboard/[ticker]`.
 
 ---
 
@@ -11,49 +11,45 @@
 
 | Page / Feature | Unauthenticated | Free | Paid | Admin |
 |---|:---:|:---:|:---:|:---:|
-| Landing page (`/`) | ✅ | ✅ | ✅ | ✅ |
-| Company profiles (`/companies/**`) | ✅ | ✅ | ✅ | ✅ |
-| Free-tier charts (Revenue, Margin, Bar) | ✅ | ✅ | ✅ | ✅ |
-| KPI cards | ✅ | ✅ | ✅ | ✅ |
-| Account settings (`/account`) | ❌ | ✅ | ✅ | ✅ |
-| Paid dashboard (`/dashboard/**`) | ❌ | ❌ | ✅ | ✅ |
-| Paid charts (Sentiment, Radar, Waterfall) | ❌ | ❌ | ✅ | ✅ |
-| Admin dashboard (`/admin/dashboard`) | ❌ | ❌ | ❌ | ✅ |
+| Main hub (`/`) | ❌ → login | ✅ | ✅ | ✅ |
+| Company profiles (`/companies/**`) | ❌ → login | ✅ | ✅ | ✅ |
+| Free-tier charts (Revenue, Margin, Bar) | ❌ → login | ✅ | ✅ | ✅ |
+| KPI cards | ❌ → login | ✅ | ✅ | ✅ |
+| Account settings (`/account`) | ❌ → login | ✅ | ✅ | ✅ |
+| Per-company paid analytics (`/dashboard/[ticker]`) | ❌ → login | ❌ → upgrade | ✅ | ✅ |
+| Paid charts (Sentiment, Radar, Waterfall) | ❌ → login | ❌ → upgrade | ✅ | ✅ |
+| Admin dashboard (`/admin/dashboard`) | ❌ → login | ❌ → / | ❌ → / | ✅ |
+
+!!! note "Global gate"
+    All routes (except `/auth/**` and `/api/**`) are protected by the Edge
+    Middleware.  Unauthenticated requests to any page redirect to
+    `/auth/login?redirect=<path>` before the page is rendered.
 
 ---
 
-## Free Tier Pages (Phase 1 — Live)
+## Main Hub (`/`)
 
-### Landing Page (`/`)
+The root page is the authenticated entry point for all users after login.
+It renders different content depending on the user's role.
 
-- Hero section with CTA buttons to `/companies` and the MAYBANK demo profile.
-- Horizontal scrollable ticker strip.
-- Feature highlights grid.
-- API preview panel with live JSON response.
-- Company grid (2×4 tiles).
+### Free role view
 
-### Company Profile (`/companies/[id]`)
+- Company grid (8 tiles) — tiles navigate to the public company profile.
+- Analytics links on each tile are locked with a "Pro" badge.
+- Upgrade CTA section below the grid with a link to `/upgrade`.
 
-- Breadcrumb navigation.
-- Company header with sector, industry, exchange, and currency.
-- Company metadata grid (founded, HQ, employees, market cap).
-- Financial statements table (`FinancialsTable`) — 5-year income statement.
-- **Free-tier charts** (Revenue Trend, Income Bar, Margin Chart).
-- 8 KPI cards in a responsive grid.
+### Paid / Admin view
+
+- Same 8-tile company grid.
+- Each tile is a deep-link to `/dashboard/[ticker]` (pro analytics).
+- Admin users also see an "Admin Dashboard →" quick-link button in the page header.
 
 ---
 
-## Paid Tier Dashboard (Phase 4)
+## Per-Company Analytics (`/dashboard/[ticker]`)
 
-### Dashboard Overview (`/dashboard`)
-
-A company grid showing all 8 covered companies as quick-launch tiles.
-Colour-coded by sector.  Requires `paid` or `admin` role — middleware
-redirects `free` users to `/upgrade`.
-
-### Per-Company Analytics (`/dashboard/[ticker]`)
-
-Three paid-tier visualisations displayed below the existing free-tier charts.
+Three paid-tier visualisations gated to `paid` and `admin` roles.
+`free` users who navigate here directly are redirected to `/upgrade`.
 
 ---
 
@@ -86,7 +82,7 @@ Three paid-tier visualisations displayed below the existing free-tier charts.
 
 ---
 
-## Other Authenticated Pages (Phase 4)
+## Other Authenticated Pages
 
 ### Account Settings (`/account`)
 
@@ -111,7 +107,20 @@ Three paid-tier visualisations displayed below the existing free-tier charts.
 
 ---
 
-## Free-Tier Chart Components (Phase 1)
+## Company Profile (`/companies/[id]`)
+
+Accessible to all authenticated users (free, paid, admin).
+
+- Breadcrumb navigation.
+- Company header with sector, industry, exchange, and currency.
+- Company metadata grid (founded, HQ, employees, market cap).
+- Financial statements table (`FinancialsTable`) — 5-year income statement.
+- **Free-tier charts** (Revenue Trend, Income Bar, Margin Chart).
+- 8 KPI cards in a responsive grid.
+
+---
+
+## Free-Tier Chart Components
 
 ### Revenue Trend Chart (`RevenueTrendChart.tsx`)
 
@@ -132,7 +141,7 @@ Three paid-tier visualisations displayed below the existing free-tier charts.
 ### KPI Cards (`KPICard.tsx`)
 
 Each card displays a label, formatted value, YoY delta badge, and subtitle.
-The Phase 1 company profile renders 8 KPI cards in a responsive grid.
+The company profile renders 8 KPI cards in a responsive grid.
 
 ---
 

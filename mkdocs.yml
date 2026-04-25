@@ -116,6 +116,7 @@ nav:
   - Frontend:
       - frontend/index.md
       - Architecture: frontend/architecture.md
+      - Routing: frontend/routing.md
       - State Management: frontend/state-management.md
       - Dashboard: frontend/dashboard.md
 

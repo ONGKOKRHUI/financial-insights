@@ -54,7 +54,7 @@ export const authQueryKeys = {
 Login and logout use `useMutation` with side effects:
 
 ```typescript
-// Login — sets user in Zustand store and navigates to /dashboard
+// Login — sets user in Zustand store and navigates to / (main hub)
 const login = useLogin();
 login.mutate({ email, password });
 
@@ -99,18 +99,52 @@ interface AuthStore {
 }
 ```
 
-**Hydration pattern** — the `useCurrentUser` hook in the root layout fires
-`GET /api/auth/me` on mount.  On success it calls `setUser()`, on failure
+**Hydration pattern** — `useCurrentUser` is called inside a dedicated
+`SessionHydrator` component (see below) that is mounted in the root provider
+tree on every page load.  On success it calls `setUser()`; on failure
 `clearUser()`.  The `isHydrating` flag prevents auth-redirect flicker while
 the initial request is in-flight.
 
 ```typescript
-// In root layout or a top-level ClientProvider:
-const { isHydrating } = useAuthStore();
-useCurrentUser(); // fires once; populates the store
+// Reading the store in any page or component:
+const { user, isHydrating } = useAuthStore();
 
-if (isHydrating) return <FullPageSkeleton />;
+if (isHydrating) return <Skeleton />;
+if (!user) return null; // middleware already redirected; safe fallback
 ```
+
+### `SessionHydrator`
+
+`SessionHydrator` is a lightweight client component that renders nothing but
+calls `useCurrentUser()` on mount.  It is placed inside `Providers` in
+`lib/providers.tsx`, which is rendered in the root `layout.tsx`.
+
+This guarantees the auth store is hydrated on **every** page load — not just
+on pages that explicitly call `useCurrentUser` — eliminating the risk of
+stale state after a browser refresh on any authenticated route.
+
+```typescript
+// lib/providers.tsx
+function SessionHydrator() {
+  useCurrentUser(); // fires GET /api/auth/me; writes result to Zustand store
+  return null;
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({ ... }));
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SessionHydrator />
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+
+**Why not call `useCurrentUser` directly in `layout.tsx`?**
+`layout.tsx` is a Server Component.  React Query hooks require a Client
+Component context — `SessionHydrator` provides that boundary without needing
+to mark the entire layout as `"use client"`.
 
 ### `searchStore` (Phase 1)
 

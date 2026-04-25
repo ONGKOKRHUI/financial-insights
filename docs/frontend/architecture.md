@@ -1,9 +1,9 @@
 # Frontend Architecture
 
 !!! success "Phase 4 Live"
-    Full authentication, RBAC-protected routes, paid dashboards, and Stripe
-    integration are implemented in Phase 4.  The basic public site from Phase 1
-    remains fully functional.
+    Full authentication, RBAC-protected routes, an authenticated main hub,
+    and Stripe integration are implemented in Phase 4.  Every route except
+    `/auth/**` and `/api/**` is gated behind a valid session cookie.
 
 ---
 
@@ -26,17 +26,17 @@
 ```
 frontend/src/
 ├── app/
-│   ├── page.tsx                          # Landing page (SSG)
-│   ├── layout.tsx                        # Root layout — auth hydration
+│   ├── page.tsx                          # Authenticated hub — role-aware company grid (CSR)
+│   ├── layout.tsx                        # Root layout — wraps all pages in Providers
 │   ├── not-found.tsx                     # 404 page
 │   ├── auth/
-│   │   ├── login/page.tsx                # Login form
-│   │   └── register/page.tsx             # Registration + one-time password modal
+│   │   ├── login/page.tsx                # Login form (public)
+│   │   └── register/page.tsx             # Registration + one-time password modal (public)
 │   ├── companies/
 │   │   ├── page.tsx                      # Company listing (SSG)
 │   │   └── [id]/page.tsx                 # Company profile with free-tier charts (ISR)
 │   ├── dashboard/
-│   │   ├── page.tsx                      # Paid overview — company grid (CSR)
+│   │   ├── page.tsx                      # Redirect → / (hub moved to root)
 │   │   └── [ticker]/page.tsx             # Per-company paid analytics (CSR)
 │   ├── account/page.tsx                  # Account settings + API key (CSR)
 │   ├── upgrade/page.tsx                  # Pricing cards + Stripe redirect (CSR)
@@ -71,7 +71,7 @@ frontend/src/
 │   │   ├── Skeleton.tsx                  # Loading skeleton variants
 │   │   └── Badge.tsx                     # Status / sector badge
 │   └── layout/
-│       ├── Header.tsx                    # Sticky nav with auth-aware links
+│       ├── Header.tsx                    # Sticky nav — auth-aware profile + logout
 │       └── Footer.tsx                    # Site footer
 ├── hooks/
 │   ├── useCompanies.ts                   # TanStack Query: company data
@@ -79,15 +79,37 @@ frontend/src/
 │   └── useAuth.ts                        # TanStack Query: auth mutations + currentUser
 ├── stores/
 │   ├── searchStore.ts                    # Zustand: ticker search state
-│   └── authStore.ts                      # Zustand: auth user, role, hydration
+│   └── authStore.ts                      # Zustand: auth user, role, hydration flag
 ├── lib/
 │   ├── api.ts                            # Centralised BFF fetch client
 │   ├── utils.ts                          # Formatters, colour helpers, YoY calc
-│   └── providers.tsx                     # TanStack QueryClientProvider wrapper
+│   └── providers.tsx                     # QueryClientProvider + SessionHydrator
 ├── types/
 │   └── index.ts                          # TypeScript interfaces for all API shapes
-└── middleware.ts                          # Edge middleware — route protection
+└── middleware.ts                          # Edge middleware — global route protection
 ```
+
+---
+
+## Route Protection
+
+The Edge Middleware (`middleware.ts`) intercepts every request before the page renders.
+
+```
+matcher: "/((?!api|_next/static|_next/image|favicon.ico).*)"
+```
+
+| Condition | Action |
+|---|---|
+| No `access_token` cookie on any route | Redirect → `/auth/login?redirect=<path>` |
+| Valid token on `/auth/**` | Redirect → `/` (already logged in) |
+| Valid token, `role != admin` on `/admin/**` | Redirect → `/` |
+| Valid token, `role == free` on `/dashboard/**` | Redirect → `/upgrade` |
+| Any other authenticated request | Allow through |
+
+The middleware decodes the JWT **without verifying the signature** (Edge runtime limitation).
+Cryptographic verification is performed by FastAPI on every API call — the middleware is a
+UX guard only, not the security boundary.
 
 ---
 
@@ -100,24 +122,24 @@ sequenceDiagram
     participant BFF as Next.js BFF Routes
     participant FastAPI
 
-    Browser->>NextEdge: GET /dashboard/MAYBANK
-    NextEdge->>NextEdge: Decode access_token cookie (no DB call)
-    alt Token missing or role != paid/admin
-        NextEdge-->>Browser: 302 → /auth/login
-    else Token valid
-        NextEdge-->>Browser: Render page
-    end
+    Browser->>NextEdge: GET / (no cookie)
+    NextEdge->>NextEdge: access_token missing
+    NextEdge-->>Browser: 302 → /auth/login?redirect=/
 
     Browser->>BFF: POST /api/auth/login {email, password}
     BFF->>FastAPI: POST /auth/login
     FastAPI-->>BFF: 200 + Set-Cookie (access_token, refresh_token)
     BFF-->>Browser: 200 + relay Set-Cookie headers
 
-    Browser->>BFF: GET /api/auth/me (with cookies)
+    Browser->>NextEdge: GET / (cookie present)
+    NextEdge->>NextEdge: Decode JWT — role = "paid"
+    NextEdge-->>Browser: Render /
+
+    Browser->>BFF: GET /api/auth/me (SessionHydrator on mount)
     BFF->>FastAPI: GET /users/me (forward Cookie header)
     FastAPI-->>BFF: 200 {id, email, role, has_api_key}
     BFF-->>Browser: 200 {id, email, role, has_api_key}
-    Browser->>Browser: setUser() in Zustand store
+    Browser->>Browser: setUser() in Zustand store → Header re-renders
 ```
 
 ---
@@ -126,14 +148,13 @@ sequenceDiagram
 
 | Route | Strategy | Reason |
 |---|---|---|
-| Landing page (`/`) | SSG | Static content, CDN-cached |
+| Main hub (`/`) | CSR | Auth-gated, role-dependent content |
 | Company listing (`/companies`) | SSG | Infrequently changing list |
 | Company profiles (`/companies/[id]`) | ISR (1 hr) | Refreshes on new filing |
 | Auth pages (`/auth/**`) | CSR | No sensitive server-side work |
-| Paid dashboard (`/dashboard/**`) | CSR | Auth-gated, dynamic data |
+| Paid analytics (`/dashboard/[ticker]`) | CSR | Auth-gated, dynamic data |
 | Account settings (`/account`) | CSR | Session-dependent |
 | Admin dashboard (`/admin/**`) | CSR | Real-time user data |
-| AI chat | CSR | Streaming responses (Phase 5) |
 
 ---
 

@@ -125,7 +125,7 @@ export function useLogin() {
     onSuccess: (user) => {
       setUser(user);
       queryClient.setQueryData(authQueryKeys.currentUser(), user);
-      router.push("/dashboard");
+      router.push("/");
     },
   });
 }
