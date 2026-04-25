@@ -102,6 +102,9 @@ nav:
       - FastAPI Architecture: backend/fastapi-architecture.md
       - Services: backend/services.md
       - Database Schema: backend/database-schema.md
+      - Authentication: backend/authentication.md
+      - RBAC: backend/rbac.md
+      - Stripe Integration: backend/stripe-integration.md
 
   - API Reference:
       - api-reference/index.md

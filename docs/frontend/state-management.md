@@ -1,7 +1,9 @@
 # State Management
 
-!!! success "Current MVP"
-    Basic TanStack Query data fetching is available from Phase 1. Zustand stores and RBAC-aware state are added in Phase 4.
+!!! success "Phase 4 Live"
+    Full auth-aware state management with Zustand and TanStack Query is
+    implemented in Phase 4.  Basic TanStack Query data fetching was
+    available from Phase 1.
 
 ---
 
@@ -11,39 +13,61 @@ FinSight separates state into two categories:
 
 | Type | Tool | Examples |
 |---|---|---|
-| **Server state** | TanStack Query | Financial data, company lists, AI responses |
-| **Client state** | Zustand | Selected company, active period, UI preferences |
+| **Server state** | TanStack Query | Financial data, company lists, auth user profile |
+| **Client state** | Zustand | Auth user object, search state, UI preferences |
 
 ---
 
 ## TanStack Query
+
+### Configuration
+
+`gcTime` and `staleTime` are configured per query type:
+
+| Query | `staleTime` | `gcTime` | Reason |
+|---|---|---|---|
+| Company list | 1 hour | 2 hours | Changes only on new filing |
+| Company profile | 1 hour | 2 hours | ISR-aligned |
+| Income statement | 1 hour | 2 hours | Fiscal-year data |
+| Current user (`/users/me`) | 5 min | 10 min | Role can change on payment |
+| Admin user list | 30 sec | 1 min | Live admin operations |
+| API key info | 1 min | 5 min | Rarely changes |
 
 ### Query Keys
 
 ```typescript
 export const queryKeys = {
   companies: () => ["companies"] as const,
-  company: (id: number) => ["companies", id] as const,
-  incomeStatement: (id: number, period: string) =>
-    ["companies", id, "income-statement", period] as const,
-  aiSummary: (id: number, period: string) =>
-    ["ai", "summary", id, period] as const,
+  company: (ticker: string) => ["companies", ticker] as const,
+  incomeStatement: (ticker: string) => ["financials", ticker] as const,
+  kpi: (ticker: string) => ["kpi", ticker] as const,
+};
+
+export const authQueryKeys = {
+  currentUser: () => ["auth", "me"] as const,
+  adminUsers: (page: number) => ["admin", "users", page] as const,
 };
 ```
 
-### Caching Strategy
+### Mutations
 
-<!-- Describe staleTime and gcTime configuration per query type -->
+Login and logout use `useMutation` with side effects:
 
-### Optimistic Updates
+```typescript
+// Login — sets user in Zustand store and navigates to /dashboard
+const login = useLogin();
+login.mutate({ email, password });
 
-<!-- Describe optimistic update pattern for any write operations (e.g. user preferences) -->
+// Logout — clears store, removes query, navigates to /auth/login
+const logout = useLogout();
+logout.mutate();
+```
 
 ---
 
 ## Zustand Stores
 
-### `useFinancialStore`
+### `useFinancialStore` (Phase 1)
 
 ```typescript
 interface FinancialStore {
@@ -54,25 +78,78 @@ interface FinancialStore {
 }
 ```
 
-### `useAuthStore`
+### `useAuthStore` (Phase 4)
 
-!!! info "Planned Architecture (Future Phases)"
-    Auth store with RBAC is implemented in Phase 4.
+```typescript
+type UserRole = "free" | "paid" | "admin";
 
-<!-- Describe auth store: user object, tier, permissions, hydration from session -->
+interface AuthUser {
+  id: number;
+  email: string;
+  role: UserRole;
+  has_api_key: boolean;
+}
 
-### `uiStore`
+interface AuthStore {
+  user: AuthUser | null;
+  isHydrating: boolean;  // true until GET /users/me resolves on first mount
+  setUser: (user: AuthUser) => void;
+  clearUser: () => void;
+  setHydrated: () => void;
+}
+```
 
-<!-- Describe UI preferences: sidebar collapsed state, theme override, table vs chart view -->
+**Hydration pattern** — the `useCurrentUser` hook in the root layout fires
+`GET /api/auth/me` on mount.  On success it calls `setUser()`, on failure
+`clearUser()`.  The `isHydrating` flag prevents auth-redirect flicker while
+the initial request is in-flight.
+
+```typescript
+// In root layout or a top-level ClientProvider:
+const { isHydrating } = useAuthStore();
+useCurrentUser(); // fires once; populates the store
+
+if (isHydrating) return <FullPageSkeleton />;
+```
+
+### `searchStore` (Phase 1)
+
+```typescript
+interface SearchStore {
+  query: string;
+  setQuery: (q: string) => void;
+}
+```
 
 ---
 
 ## Data Fetching Patterns
 
-### Financial Statements with Suspense
+### Financial Statements
 
-<!-- Describe React Suspense + TanStack Query pattern for financial data pages -->
+Company profile pages use `useQuery` with ISR-aligned `staleTime`:
 
-### Streaming AI Responses
+```typescript
+const { data, isLoading } = useQuery({
+  queryKey: queryKeys.incomeStatement(ticker),
+  queryFn: () => api.financials.incomeStatement(ticker),
+  staleTime: 60 * 60 * 1000,
+});
+```
 
-<!-- Describe EventSource / fetch streaming pattern for AI chat messages -->
+### Optimistic Updates (Admin)
+
+Admin role updates use optimistic mutations to immediately reflect the
+change in the table while the PATCH request is in-flight:
+
+```typescript
+const update = useMutation({
+  mutationFn: ({ id, body }) => updateUser(id, body),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKeys.adminUsers(page) }),
+});
+```
+
+### Streaming AI Responses (Phase 5)
+
+The AI chat interface will use `EventSource` or `ReadableStream` to stream
+tokens from the FastAPI backend as they are generated by the LLM.

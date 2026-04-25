@@ -1,4 +1,15 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, UniqueConstraint
+from datetime import datetime
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from database import Base
 
 
@@ -90,3 +101,66 @@ class QualitativeInsight(Base):
     fiscal_year = Column(Integer, nullable=False)
     future_outlook = Column(Text)
     key_strategic_events = Column(Text)  # stored as JSON string
+
+
+# ---------------------------------------------------------------------------
+# Auth & RBAC models (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+class User(Base):
+    """Registered user account.
+
+    Roles
+    -----
+    - ``free``  — basic public data, no API key
+    - ``paid``  — full dashboard + 1 API key (granted via Stripe webhook)
+    - ``admin`` — all resources + user management dashboard
+    """
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default="free")
+    stripe_customer_id = Column(String(100), nullable=True)
+    stripe_subscription_id = Column(String(100), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class RefreshToken(Base):
+    """Long-lived refresh token stored as a bcrypt hash.
+
+    Storing only the hash means a database compromise does not expose
+    live tokens.  Tokens are single-use: on rotation the old row is
+    revoked and a new one is inserted.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(255), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, nullable=False, default=False)
+
+
+class APIKey(Base):
+    """Developer API key for programmatic access (paid tier and above).
+
+    Only the SHA-256 hash is persisted; the raw key is returned to the
+    user exactly once at creation time and never stored in plain text.
+    The ``key_prefix`` (first 8 chars) is stored so users can identify
+    their key in the dashboard without revealing the full secret.
+    """
+
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    key_hash = Column(String(64), unique=True, nullable=False)  # SHA-256 hex digest
+    key_prefix = Column(String(10), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    revoked = Column(Boolean, nullable=False, default=False)

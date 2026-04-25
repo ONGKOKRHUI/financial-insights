@@ -1,65 +1,167 @@
 # Authentication
 
-!!! success "Phase 3 — Open API"
-    The FinSight API is currently **open**. No authentication header, API key,
-    or token is required to call any endpoint. All requests are accepted as-is.
+!!! success "Phase 4 — JWT + API Key Auth"
+    Authentication is fully implemented in Phase 4.  All token exchange
+    uses HttpOnly cookies for the web dashboard and an ``X-API-Key`` header
+    for programmatic API access.
 
 ---
 
-## Current State (Phase 3)
+## Overview
 
-Send requests directly — no headers needed:
+FinSight uses two parallel authentication mechanisms:
+
+| Mechanism | Used by | Transport |
+|---|---|---|
+| **JWT (HttpOnly cookies)** | Web dashboard (browser) | `Set-Cookie` header — never JavaScript-readable |
+| **API Key (`X-API-Key`)** | Programmatic clients, scripts | Request header |
+
+Both mechanisms are enforced server-side by FastAPI dependencies on every
+protected route.  The middleware in `middleware.ts` is a UX-level guard
+only — the real security boundary is always the backend.
+
+---
+
+## JWT Cookie Authentication
+
+### Registration
+
+`POST /auth/register` — accepts an email address only.  The server generates
+a cryptographically secure password (`secrets.token_urlsafe`) and returns it
+**once** in the response body.
 
 ```bash
-curl "https://finsight-api.onrender.com/companies/MAYBANK/summary"
+curl -s -X POST https://finsight-api.onrender.com/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "dev@example.com"}' | jq .
+```
+
+```json
+{
+  "email": "dev@example.com",
+  "generated_password": "K7hXqN2-Rv8pzYoLmTcAeD",
+  "message": "Account created. Copy your password now — it will not be shown again."
+}
+```
+
+!!! warning "One-time password"
+    Store the generated password immediately — it is not recoverable.
+
+### Login
+
+`POST /auth/login` — exchange credentials for two HttpOnly cookies:
+
+| Cookie | TTL | Contents |
+|---|---|---|
+| `access_token` | 15 minutes | JWT with `sub`, `role`, `exp`, `type: "access"` |
+| `refresh_token` | 7 days | JWT with `sub`, `exp`, `type: "refresh"` |
+
+```bash
+curl -s -c cookies.txt -X POST https://finsight-api.onrender.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "dev@example.com", "password": "K7hXqN2-Rv8pzYoLmTcAeD"}'
+```
+
+Cookie security attributes:
+
+```
+Set-Cookie: access_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+Set-Cookie: refresh_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800
+```
+
+- **`HttpOnly`** — JavaScript cannot read these cookies (XSS protection).
+- **`Secure`** — transmitted over HTTPS only.
+- **`SameSite=Lax`** — blocks cross-site POST forgery while allowing top-level navigations.
+
+### Token Refresh
+
+`POST /auth/refresh` — rotate the access token using the refresh cookie.
+The refresh token hash is verified against the database on every call so
+it can be revoked server-side.
+
+```bash
+curl -s -b cookies.txt -c cookies.txt -X POST \
+  https://finsight-api.onrender.com/auth/refresh
+```
+
+### Logout
+
+`POST /auth/logout` — revokes the refresh token in the database and clears
+both cookies by setting `Max-Age=0`.
+
+```bash
+curl -s -b cookies.txt -X POST https://finsight-api.onrender.com/auth/logout
+```
+
+---
+
+## API Key Authentication
+
+Developer API keys are available to `paid` and `admin` tier users.  A key
+is automatically generated when a Stripe subscription payment succeeds.
+
+### Usage
+
+Pass the key in the `X-API-Key` request header:
+
+```bash
+curl -s -H "X-API-Key: fsk_yourKeyHere" \
+  -X POST https://finsight-api.onrender.com/search \
+  -H "Content-Type: application/json" \
+  -d '{"ticker": "MAYBANK", "statement_type": "kpi"}'
 ```
 
 ```python
 import httpx
-res = httpx.get("https://finsight-api.onrender.com/companies/MAYBANK/summary")
+
+res = httpx.post(
+    "https://finsight-api.onrender.com/search",
+    json={"ticker": "MAYBANK", "statement_type": "income_statement"},
+    headers={"X-API-Key": "fsk_yourKeyHere"},
+)
 print(res.json())
 ```
 
----
+### Key Security
 
-## Planned: API Key Authentication (Phase 4)
-
-API key gating will be introduced in Phase 4 alongside the RBAC system. When
-implemented:
-
-- Keys will be passed via an `X-API-Key` request header.
-- Free-tier keys will be rate-limited (10 req/min, 100 req/day).
-- Paid-tier keys will have higher limits (300 req/min, 50,000 req/day).
-- The endpoint paths and response shapes will **not change**.
-
-Example of future usage (Phase 4+):
-
-```bash
-curl -H "X-API-Key: YOUR_API_KEY" \
-     "https://finsight-api.onrender.com/companies"
-```
+- Keys are prefixed `fsk_` for easy identification in environment files.
+- Only the **SHA-256 hash** of the key is stored in the database — a breach
+  does not expose live keys.
+- A key is returned **exactly once** (at creation / rotation) and never
+  retrievable again.
+- Rotate immediately if accidentally exposed: `POST /users/me/api-key/rotate`.
 
 ---
 
-## Planned: JWT Session Auth (Phase 4)
+## RBAC & Route Protection
 
-The web dashboard will use OAuth2 + JWT (stored in HttpOnly cookies) for
-session-based authentication and Role-Based Access Control (RBAC). This is
-separate from the developer API key and applies only to the browser dashboard.
-
-| Role        | Access Level                                            |
-|-------------|---------------------------------------------------------|
-| `anonymous` | Public landing page only                               |
-| `free`      | Basic company metrics, limited API calls               |
-| `paid`      | Full dashboard, deep analytics, unrestricted API       |
-| `admin`     | All resources + user management                        |
+| Endpoint | Unauthenticated | Free | Paid | Admin |
+|---|:---:|:---:|:---:|:---:|
+| `GET /companies/**` | ✅ | ✅ | ✅ | ✅ |
+| `GET /financials/**` | ✅ | ✅ | ✅ | ✅ |
+| `POST /auth/**` | ✅ | ✅ | ✅ | ✅ |
+| `GET /users/me` | ❌ | ✅ | ✅ | ✅ |
+| `POST /search` | ❌ | ❌ | ✅ | ✅ |
+| `GET /users/me/api-key` | ❌ | ❌ | ✅ | ✅ |
+| `GET /admin/users` | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
-## Security Guidance for Phase 4+
+## Environment Variables
 
-When API keys are introduced, treat them as secrets:
+The following variables must be set on the backend (Render):
 
-- Store in environment variables, never in source code.
-- Use `NEXT_PUBLIC_` prefixes only for values intended to be public.
-- Rotate keys immediately if accidentally exposed.
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | 32-byte hex string for JWT signing (`openssl rand -hex 32`) |
+| `ALGORITHM` | JWT algorithm (default: `HS256`) |
+| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_live_…` or `sk_test_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret from the Stripe dashboard |
+
+Frontend (Vercel):
+
+| Variable | Description |
+|---|---|
+| `STRIPE_SECRET_KEY` | Same Stripe secret key (used by BFF checkout route) |
+| `STRIPE_PRO_PRICE_ID` | Stripe price ID for the MYR 29/mo subscription |
+| `NEXT_PUBLIC_APP_URL` | Frontend base URL for Stripe success/cancel redirects |

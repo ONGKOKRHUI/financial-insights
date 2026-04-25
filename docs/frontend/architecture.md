@@ -1,7 +1,9 @@
 # Frontend Architecture
 
-!!! success "Current MVP"
-    The Next.js application with landing page, basic company pages, and Vercel deployment is live from Phase 1.
+!!! success "Phase 4 Live"
+    Full authentication, RBAC-protected routes, paid dashboards, and Stripe
+    integration are implemented in Phase 4.  The basic public site from Phase 1
+    remains fully functional.
 
 ---
 
@@ -9,60 +11,113 @@
 
 | Library | Purpose |
 |---|---|
-| Next.js (App Router) | React framework, SSR / SSG |
-| TypeScript | Type safety |
-| Zustand | Client-side state management |
-| TanStack Query | Server state, caching, and data fetching |
-| Recharts / Chart.js | Financial chart visualizations |
-| Tailwind CSS | Utility-first styling |
+| Next.js 16 (App Router) | React framework, SSR / SSG / Edge middleware |
+| TypeScript | Type safety across all components and API shapes |
+| Zustand | Client-side global state (auth user, UI preferences) |
+| TanStack Query v5 | Server state, caching, and mutation handling |
+| Recharts | Financial chart visualizations (free and paid tier) |
+| Tailwind CSS v4 | Utility-first styling |
+| Stripe.js | Stripe Checkout redirect for subscription upgrade |
 
 ---
 
 ## Project Structure
 
 ```
-frontend/
-├── src/
-│   ├── app/
-│   │   ├── page.tsx                      # Landing page (SSG)
-│   │   ├── layout.tsx                    # Root layout with Header + Footer
-│   │   ├── not-found.tsx                 # 404 page
-│   │   ├── companies/
-│   │   │   ├── page.tsx                  # Company listing (SSG)
-│   │   │   └── [id]/page.tsx             # Company profile (ISR)
-│   │   └── api/                          # Next.js BFF route handlers
-│   │       ├── companies/route.ts        # GET /api/companies
-│   │       ├── companies/[id]/route.ts   # GET /api/companies/{ticker}
-│   │       └── financials/[id]/route.ts  # GET /api/financials/{ticker}
-│   ├── components/
-│   │   ├── charts/
-│   │   │   ├── RevenueTrendChart.tsx     # Recharts LineChart — revenue & net income
-│   │   │   ├── IncomeBarChart.tsx        # Recharts BarChart — income breakdown
-│   │   │   └── MarginChart.tsx           # Recharts AreaChart — profitability margins
-│   │   ├── tables/
-│   │   │   └── FinancialsTable.tsx       # Annual income statement with YoY deltas
-│   │   ├── ui/
-│   │   │   ├── KPICard.tsx               # Metric card with value, YoY delta, subtitle
-│   │   │   ├── CompanyCard.tsx           # Linked company tile for listings
-│   │   │   ├── Skeleton.tsx              # Loading skeleton variants
-│   │   │   └── Badge.tsx                 # Status / sector badge
-│   │   └── layout/
-│   │       ├── Header.tsx                # Sticky nav with search input
-│   │       └── Footer.tsx                # Site footer
-│   ├── hooks/
-│   │   ├── useCompanies.ts               # TanStack Query hooks for company data
-│   │   └── useFinancials.ts              # TanStack Query hook for income statement
-│   ├── stores/
-│   │   └── searchStore.ts                # Zustand store for ticker search state
-│   ├── lib/
-│   │   ├── api.ts                        # API client targeting BFF routes
-│   │   ├── utils.ts                      # Formatters, color helpers, YoY calc
-│   │   └── providers.tsx                 # TanStack QueryClientProvider wrapper
-│   └── types/
-│       └── index.ts                      # TypeScript interfaces for all API shapes
-├── vercel.json                           # Vercel deployment config
-├── next.config.ts                        # Next.js config with env vars
-└── .env.example                          # Required environment variables
+frontend/src/
+├── app/
+│   ├── page.tsx                          # Landing page (SSG)
+│   ├── layout.tsx                        # Root layout — auth hydration
+│   ├── not-found.tsx                     # 404 page
+│   ├── auth/
+│   │   ├── login/page.tsx                # Login form
+│   │   └── register/page.tsx             # Registration + one-time password modal
+│   ├── companies/
+│   │   ├── page.tsx                      # Company listing (SSG)
+│   │   └── [id]/page.tsx                 # Company profile with free-tier charts (ISR)
+│   ├── dashboard/
+│   │   ├── page.tsx                      # Paid overview — company grid (CSR)
+│   │   └── [ticker]/page.tsx             # Per-company paid analytics (CSR)
+│   ├── account/page.tsx                  # Account settings + API key (CSR)
+│   ├── upgrade/page.tsx                  # Pricing cards + Stripe redirect (CSR)
+│   ├── admin/
+│   │   └── dashboard/page.tsx            # Admin user management (CSR)
+│   └── api/                              # Next.js BFF route handlers
+│       ├── auth/
+│       │   ├── register/route.ts         # POST /api/auth/register
+│       │   ├── login/route.ts            # POST /api/auth/login
+│       │   ├── logout/route.ts           # POST /api/auth/logout
+│       │   └── me/route.ts               # GET  /api/auth/me
+│       ├── companies/route.ts            # GET  /api/companies
+│       ├── companies/[id]/route.ts       # GET  /api/companies/{ticker}
+│       ├── financials/[id]/route.ts      # GET  /api/financials/{ticker}
+│       ├── users/api-key/route.ts        # GET + POST /api/users/api-key
+│       ├── admin/users/route.ts          # GET  /api/admin/users
+│       ├── admin/users/[id]/route.ts     # PATCH + DELETE /api/admin/users/{id}
+│       └── stripe/checkout/route.ts      # POST /api/stripe/checkout
+├── components/
+│   ├── charts/
+│   │   ├── RevenueTrendChart.tsx         # Free: dual-line revenue & net income
+│   │   ├── IncomeBarChart.tsx            # Free: grouped bar income breakdown
+│   │   ├── MarginChart.tsx               # Free: area chart profitability margins
+│   │   ├── SentimentOverlayChart.tsx     # PAID: AI sentiment + revenue composed chart
+│   │   ├── PeerRadarChart.tsx            # PAID: 5-axis radar vs peers
+│   │   └── WaterfallChart.tsx            # PAID: revenue-to-net-income waterfall
+│   ├── tables/
+│   │   └── FinancialsTable.tsx           # Income statement with YoY deltas
+│   ├── ui/
+│   │   ├── KPICard.tsx                   # Metric card with value and YoY delta
+│   │   ├── CompanyCard.tsx               # Company tile for listings
+│   │   ├── Skeleton.tsx                  # Loading skeleton variants
+│   │   └── Badge.tsx                     # Status / sector badge
+│   └── layout/
+│       ├── Header.tsx                    # Sticky nav with auth-aware links
+│       └── Footer.tsx                    # Site footer
+├── hooks/
+│   ├── useCompanies.ts                   # TanStack Query: company data
+│   ├── useFinancials.ts                  # TanStack Query: income statement
+│   └── useAuth.ts                        # TanStack Query: auth mutations + currentUser
+├── stores/
+│   ├── searchStore.ts                    # Zustand: ticker search state
+│   └── authStore.ts                      # Zustand: auth user, role, hydration
+├── lib/
+│   ├── api.ts                            # Centralised BFF fetch client
+│   ├── utils.ts                          # Formatters, colour helpers, YoY calc
+│   └── providers.tsx                     # TanStack QueryClientProvider wrapper
+├── types/
+│   └── index.ts                          # TypeScript interfaces for all API shapes
+└── middleware.ts                          # Edge middleware — route protection
+```
+
+---
+
+## Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant NextEdge as Next.js Edge Middleware
+    participant BFF as Next.js BFF Routes
+    participant FastAPI
+
+    Browser->>NextEdge: GET /dashboard/MAYBANK
+    NextEdge->>NextEdge: Decode access_token cookie (no DB call)
+    alt Token missing or role != paid/admin
+        NextEdge-->>Browser: 302 → /auth/login
+    else Token valid
+        NextEdge-->>Browser: Render page
+    end
+
+    Browser->>BFF: POST /api/auth/login {email, password}
+    BFF->>FastAPI: POST /auth/login
+    FastAPI-->>BFF: 200 + Set-Cookie (access_token, refresh_token)
+    BFF-->>Browser: 200 + relay Set-Cookie headers
+
+    Browser->>BFF: GET /api/auth/me (with cookies)
+    BFF->>FastAPI: GET /users/me (forward Cookie header)
+    FastAPI-->>BFF: 200 {id, email, role, has_api_key}
+    BFF-->>Browser: 200 {id, email, role, has_api_key}
+    Browser->>Browser: setUser() in Zustand store
 ```
 
 ---
@@ -71,11 +126,14 @@ frontend/
 
 | Route | Strategy | Reason |
 |---|---|---|
-| Landing page (`/`) | SSG | Static content, fast CDN |
+| Landing page (`/`) | SSG | Static content, CDN-cached |
 | Company listing (`/companies`) | SSG | Infrequently changing list |
 | Company profiles (`/companies/[id]`) | ISR (1 hr) | Refreshes on new filing |
-| Dashboard (paid) | CSR | Auth-gated, dynamic data (Phase 4) |
-| AI chat | CSR | Real-time streaming responses (Phase 5) |
+| Auth pages (`/auth/**`) | CSR | No sensitive server-side work |
+| Paid dashboard (`/dashboard/**`) | CSR | Auth-gated, dynamic data |
+| Account settings (`/account`) | CSR | Session-dependent |
+| Admin dashboard (`/admin/**`) | CSR | Real-time user data |
+| AI chat | CSR | Streaming responses (Phase 5) |
 
 ---
 
@@ -83,13 +141,10 @@ frontend/
 
 ### Frontend → Vercel
 
-The frontend is deployed to Vercel via GitHub Actions on every push to `main` that touches `frontend/**`.
+The frontend is deployed to Vercel via GitHub Actions on every push to `main`
+that touches `frontend/**`.
 
 **Workflow:** `.github/workflows/deploy-frontend.yml`
-
-1. Runs `npm ci` and `npx tsc --noEmit` for type checking.
-2. Runs `npm run build` with environment variable injection.
-3. Deploys to production using `amondnet/vercel-action@v25`.
 
 **Required GitHub Secrets:**
 
@@ -98,44 +153,12 @@ The frontend is deployed to Vercel via GitHub Actions on every push to `main` th
 | `VERCEL_TOKEN` | Vercel personal access token |
 | `VERCEL_ORG_ID` | Vercel team/org ID |
 | `VERCEL_PROJECT_ID` | Vercel project ID |
-| `NEXT_PUBLIC_API_URL` | Public FastAPI URL (e.g. `https://finsight-api.onrender.com`) |
-| `INTERNAL_API_URL` | Server-side FastAPI URL (same as above on Vercel) |
-
-**Setup steps:**
-
-1. Create a Vercel project and link it to the `financial-insights` repository with `Root Directory: frontend`.
-2. Retrieve `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` from `.vercel/project.json` after running `vercel link`.
-3. Generate a `VERCEL_TOKEN` from [vercel.com/account/tokens](https://vercel.com/account/tokens).
-4. Add all secrets to the GitHub repository under **Settings → Secrets and variables → Actions**.
+| `NEXT_PUBLIC_API_URL` | Public FastAPI URL |
+| `INTERNAL_API_URL` | Server-side FastAPI URL |
+| `STRIPE_SECRET_KEY` | Stripe secret key (for BFF checkout) |
+| `STRIPE_PRO_PRICE_ID` | Stripe price ID for MYR 29/mo plan |
+| `NEXT_PUBLIC_APP_URL` | Frontend URL for Stripe redirects |
 
 ### Backend → Render
 
-The FastAPI backend is deployed to Render via a deploy hook triggered by GitHub Actions.
-
-**Workflow:** `.github/workflows/deploy-backend.yml`
-
-1. Validates Python imports (`from backend.main import app`).
-2. Triggers the Render deploy hook via `curl`.
-
-**Required GitHub Secret:**
-
-| Secret | Description |
-|---|---|
-| `RENDER_DEPLOY_HOOK_URL` | Deploy hook URL from Render dashboard |
-
-**Setup steps:**
-
-1. Create a new Web Service on [render.com](https://render.com) pointing to this repository.
-2. Set `Root Directory: .` and `Start Command: uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
-3. Copy the deploy hook URL from the service's **Settings → Deploy Hook**.
-4. Add it as `RENDER_DEPLOY_HOOK_URL` in GitHub secrets.
-5. Set `ALLOWED_ORIGINS` environment variable on Render to the Vercel production URL.
-
----
-
-## Authentication Flow
-
-!!! info "Planned Architecture (Future Phases)"
-    Full auth integration with RBAC is implemented in Phase 4.
-
-Full auth integration using OAuth2 / JWT with HttpOnly cookies is planned for Phase 4. In Phase 1, all routes are public.
+See `docs/backend/fastapi-architecture.md` for backend deployment details.

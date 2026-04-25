@@ -5,6 +5,17 @@ python-dotenv==1.0.1
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
 
+# Auth & security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# Stripe payments
+stripe==10.5.0
+
+# Database migrations
+alembic==1.14.0
+
 # Test dependencies (also used in CI)
 httpx==0.27.0
 pytest==8.3.2

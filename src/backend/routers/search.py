@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from auth.dependencies import require_api_key_or_session
 from database import get_db
 from models import (
     BalanceSheet,
@@ -13,6 +14,7 @@ from models import (
     IncomeStatement,
     KPISummary,
     QualitativeInsight,
+    User,
 )
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -40,7 +42,11 @@ class SearchResponse(BaseModel):
 
 
 @router.post("", response_model=SearchResponse, summary="Unified financial data query")
-def search(payload: SearchRequest, db: Session = Depends(get_db)):
+def search(
+    payload: SearchRequest,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_api_key_or_session),
+):
     """
     Unified payload-based query endpoint.
 
