@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.3.1",
+    "@ricky0123/vad-web": "^0.0.30",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
     "@types/js-cookie": "^3.0.6",

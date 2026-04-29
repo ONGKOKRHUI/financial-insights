@@ -125,6 +125,13 @@ nav:
       - RAG Pipeline: ai-systems/rag-pipeline.md
       - LLM Analysis: ai-systems/llm-analysis.md
       - Agentic System: ai-systems/agentic-system.md
+      - Jarvis Voice Assistant:
+          - Overview: ai-systems/jarvis-overview.md
+          - Architecture & Pipeline: ai-systems/jarvis-architecture.md
+          - Intent Classifier Prompt: ai-systems/jarvis-intent-classifier.md
+          - API Reference: ai-systems/jarvis-api-reference.md
+          - Deployment Guide: ai-systems/jarvis-deployment.md
+          - Roadmap: ai-systems/jarvis-roadmap.md
 
   - MLOps:
       - mlops/index.md
