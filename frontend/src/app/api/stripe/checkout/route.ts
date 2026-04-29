@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   // Initialise Stripe inside the handler so a missing key returns 503
   // rather than crashing the module at load time.
   const stripe = new Stripe(stripeKey, {
-    apiVersion: "2025-01-27.acacia",
+    apiVersion: "2026-04-22.dahlia",
   });
 
   // Identify the logged-in user via the session cookie.
