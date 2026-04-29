@@ -43,6 +43,15 @@ Set-Cookie: refresh_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age
 | `SameSite=Lax` | Blocks cross-site POST requests (CSRF) while allowing normal navigations |
 | `Path=/` | Cookie is sent on all requests to the domain |
 
+!!! warning "Local development — `Secure` flag"
+    The `Secure` attribute prevents cookies from being set over plain HTTP
+    (`http://localhost`).  In local development you **must** set
+    `COOKIE_SECURE=false` in the backend's environment, otherwise login will
+    appear to succeed but no cookies will be stored and subsequent
+    authenticated requests will fail with 401.
+
+    In production (HTTPS) leave `COOKIE_SECURE` unset (defaults to `true`).
+
 ### Signing
 
 Tokens are signed with HS256 using the `SECRET_KEY` environment variable.
@@ -145,3 +154,16 @@ sequenceDiagram
 |---|---|---|---|
 | `SECRET_KEY` | **Yes** | `change-me-…` | JWT signing key — generate with `openssl rand -hex 32` |
 | `ALGORITHM` | No | `HS256` | JWT algorithm |
+| `COOKIE_SECURE` | No | `true` | Set to `false` for local HTTP (`http://localhost`) development |
+
+## BFF Login Route — Full Profile Response
+
+The Next.js BFF login route (`/api/auth/login`) does more than simply proxy
+credentials.  After FastAPI sets the cookies, the BFF extracts the
+`access_token` value from the `Set-Cookie` response header and calls
+`GET /users/me` internally to fetch the complete `AuthUser` shape
+`{id, email, role, has_api_key}`.
+
+This is necessary because the bare FastAPI login response only returns
+`{email, role, message}`, which is insufficient for the Zustand auth store
+(which requires `id` and `has_api_key`).

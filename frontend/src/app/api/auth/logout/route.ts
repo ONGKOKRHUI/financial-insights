@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
     headers: { Cookie: cookieHeader },
   });
 
-  const nextRes = NextResponse.json({}, { status: backendRes.status });
+  const nextRes =
+  backendRes.status === 204
+    ? new NextResponse(null, { status: 204 })
+    : NextResponse.json({}, { status: backendRes.status });
   const setCookie = backendRes.headers.getSetCookie?.() ?? [];
   setCookie.forEach((cookie) => nextRes.headers.append("Set-Cookie", cookie));
 

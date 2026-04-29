@@ -17,6 +17,7 @@ All auth cookies are ``HttpOnly``, ``Secure``, ``SameSite=Lax``:
 """
 
 import hashlib
+import os
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -86,7 +87,11 @@ class RefreshResponse(BaseModel):
 # Cookie helpers
 # ---------------------------------------------------------------------------
 
-_COOKIE_OPTS = dict(httponly=True, secure=True, samesite="lax", path="/")
+# Set COOKIE_SECURE=false in local development (HTTP). Production (HTTPS) should
+# leave this unset or set it to "true" so cookies are only sent over HTTPS.
+_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+
+_COOKIE_OPTS = dict(httponly=True, secure=_COOKIE_SECURE, samesite="lax", path="/")
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -284,6 +289,8 @@ def refresh_token(
     if not user:
         raise credentials_exc
 
+    # Always re-read the role from the DB so that role upgrades (e.g.
+    # free → paid after a Stripe payment) are reflected in the new token.
     new_access_token = create_access_token({"sub": user.email, "role": user.role})
     response.set_cookie(
         key="access_token",
