@@ -14,24 +14,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-04-22.dahlia",
-});
-
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID ?? "";
 
 export async function POST(req: NextRequest) {
-  if (!PRO_PRICE_ID) {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey || !PRO_PRICE_ID) {
     return NextResponse.json(
       { error: "Stripe is not configured on this server." },
       { status: 503 }
     );
   }
+
+  const stripe = new Stripe(stripeSecretKey, {
+    apiVersion: "2026-04-22.dahlia",
+  });
 
   // Identify the logged-in user via the BFF auth/me endpoint
   const cookieHeader = req.headers.get("cookie") ?? "";
