@@ -2,12 +2,12 @@
 
 Converts a text transcript into a structured navigation command.
 
-Supports two engines, toggled via JARVIS_INTENT_ENGINE env var:
-  - "keyword"  → regex/keyword matching (default, no external deps, always works)
-  - "dify"     → Dify Workflow API      (optional upgrade for richer NLU)
+Supports three engines, toggled via JARVIS_INTENT_ENGINE env var:
+  - "keyword"   → regex/keyword matching (default, no external deps, always works)
+  - "langgraph" → LangChain + LangGraph pipeline (full NLU, requires GOOGLE_API_KEY)
+  - "dify"      → Dify Workflow API (legacy, not recommended)
 
-The keyword engine is the primary engine and will always be used as fallback
-if Dify is unavailable or returns an unrecognised response.
+The keyword engine is always used as fallback if the selected engine fails.
 """
 
 from __future__ import annotations
@@ -85,7 +85,44 @@ def _map_keyword(transcript: str) -> dict:
     }
 
 
-# ── Dify engine (optional upgrade) ────────────────────────────────────────────
+# ── LangGraph engine ──────────────────────────────────────────────────────────
+
+def _map_langgraph(transcript: str, session_id: str = "anonymous") -> dict:
+    """Run the full Jarvis LangGraph pipeline for intent classification.
+
+    Falls back to the keyword engine if GOOGLE_API_KEY is not set or the
+    graph raises an unexpected exception.
+    """
+    if not os.getenv("GOOGLE_API_KEY"):
+        logger.warning(
+            "JARVIS_INTENT_ENGINE=langgraph but GOOGLE_API_KEY is not set. "
+            "Falling back to keyword engine."
+        )
+        return _map_keyword(transcript)
+
+    try:
+        from services.langgraph_intent import run_jarvis_graph  # lazy import
+
+        logger.info("LangGraph intent pipeline: %r", transcript[:80])
+        result = run_jarvis_graph(transcript, session_id=session_id)
+        # Add backward-compat "label" field used by older frontend code
+        if result.get("action") == "navigate" and result.get("target"):
+            result.setdefault("label", _TICKER_NAMES.get(result["target"], result["target"]))
+        return result
+    except Exception as exc:
+        exc_str = str(exc)
+        if "API_KEY_INVALID" in exc_str or "API key not valid" in exc_str:
+            logger.warning(
+                "LangGraph intent failed: Google API key invalid. "
+                "Set `GOOGLE_API_KEY` to a valid Gemini/Generative Language API key "
+                "or switch JARVIS_INTENT_ENGINE=keyword."
+            )
+        else:
+            logger.warning("LangGraph intent error: %s. Falling back to keyword engine.", exc)
+        return _map_keyword(transcript)
+
+
+# ── Dify engine (legacy) ───────────────────────────────────────────────────────
 
 _DIFY_API_URL = os.getenv("JARVIS_DIFY_API_URL", "")
 _DIFY_API_KEY = os.getenv("JARVIS_DIFY_API_KEY", "")
@@ -177,7 +214,9 @@ def map_intent(transcript: str) -> dict:
             "engine": _INTENT_ENGINE,
         }
 
-    if _INTENT_ENGINE == "dify":
+    if _INTENT_ENGINE == "langgraph":
+        return _map_langgraph(transcript)
+    elif _INTENT_ENGINE == "dify":
         return _map_dify(transcript)
     else:
         return _map_keyword(transcript)
