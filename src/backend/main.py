@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import SessionLocal, engine
 from models import Base
-from routers import admin, companies, financials, search
+from routers import admin, companies, financials, jarvis, search
 from routers import auth as auth_router
 from routers import users as users_router
 from routers import webhooks
@@ -126,6 +126,7 @@ app.include_router(webhooks.router)
 app.include_router(companies.router)
 app.include_router(financials.router)
 app.include_router(search.router)
+app.include_router(jarvis.router)
 
 
 @app.get("/", tags=["health"])

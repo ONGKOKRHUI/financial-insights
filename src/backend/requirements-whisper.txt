@@ -1,0 +1,4 @@
+# ── Jarvis local Whisper ASR ───────────────────────────────────────
+# Uses faster-whisper (CTranslate2 backend) — pip-installable, Python 3.12 compatible,
+# and 4x faster than openai-whisper on CPU.
+faster-whisper>=1.0.3
