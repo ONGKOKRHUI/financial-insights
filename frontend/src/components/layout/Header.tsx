@@ -13,12 +13,12 @@
  * | paid         | Role badge, email, "Account", "Pro Analytics", "Log Out" |
  * | admin        | Role badge, email, "Account", "Admin", "Log Out"      |
  *
- * Dynamic nav links
- * -----------------
- * All authenticated users see "Companies" and "API Docs".
- * Additional role-specific links are injected into the right-side area.
+ * Nav links
+ * ---------
+ * PUBLIC_NAV_LINKS — shown to every visitor (authenticated or not).
+ * AUTH_NAV_LINKS   — shown only to authenticated users.
  *
- * The ticker search bar is always visible for authenticated users.
+ * The ticker search bar is only visible to authenticated users.
  */
 
 import Link from "next/link";
@@ -32,8 +32,13 @@ import { useSearchStore } from "@/stores/searchStore";
 // Constants
 // ---------------------------------------------------------------------------
 
-const NAV_LINKS = [
+/** Visible to every visitor regardless of auth state. */
+const PUBLIC_NAV_LINKS = [
   { href: "/companies", label: "Companies" },
+];
+
+/** Only shown once the user is authenticated. */
+const AUTH_NAV_LINKS = [
   { href: "/api-docs", label: "API Docs" },
 ];
 
@@ -81,8 +86,9 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         {/* ── Logo ─────────────────────────────────────────── */}
+        {/* Authenticated users go to the hub (/); guests land on /companies. */}
         <Link
-          href="/"
+          href={isAuthenticated ? "/" : "/companies"}
           className="flex items-center gap-2 text-xl font-bold text-white hover:text-indigo-400 transition-colors"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white text-sm font-bold">
@@ -91,20 +97,29 @@ export default function Header() {
           FinSight
         </Link>
 
-        {/* ── Nav links (authenticated only) ───────────────── */}
-        {isAuthenticated && (
-          <nav className="hidden items-center gap-6 md:flex">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        )}
+        {/* ── Nav links ────────────────────────────────────── */}
+        <nav className="hidden items-center gap-6 md:flex">
+          {/* Public links — visible to every visitor */}
+          {PUBLIC_NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+          {/* Auth-only links */}
+          {isAuthenticated && AUTH_NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
         {/* ── Right side ───────────────────────────────────── */}
         <div className="flex items-center gap-3">

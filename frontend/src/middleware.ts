@@ -86,9 +86,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Global gate — any unauthenticated request is redirected to login.
+  // Global gate — unauthenticated requests are handled based on the path.
   if (!isAuthenticated) {
     const url = req.nextUrl.clone();
+    // Root visitors who are not logged in land on the public companies page
+    // instead of the login screen.  The login page is reachable via the
+    // "Sign In" button in the header.
+    if (pathname === "/") {
+      url.pathname = "/companies";
+      return NextResponse.redirect(url);
+    }
     url.pathname = "/auth/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
