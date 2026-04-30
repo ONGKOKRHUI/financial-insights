@@ -21,6 +21,7 @@ FinSight API bridges the gap between raw financial disclosures and actionable de
 | [API Reference](api-reference/overview.md) | Endpoints, auth, and usage examples | ✅ Current |
 | [Frontend](frontend/architecture.md) | Next.js dashboard, routing, and state management | ✅ Current |
 | [AI Systems](ai-systems/jarvis-overview.md) | Jarvis voice assistant, intent classification | ✅ Current |
+| [RAG Pipeline](ai-systems/rag-pipeline.md) | RAG, LLM analysis, and agents | 🚧 Planned |
 | [MLOps](mlops/model-training.md) | Model training, tracking, and deployment | 🚧 Planned |
 | [System Design](system-design/scaling.md) | Scaling, reliability, and data quality | 🚧 Planned |
 | [Development](development/environment-setup.md) | Local setup and contribution guide | ✅ Current |
@@ -56,6 +57,8 @@ Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Planned
     - **Alembic** — Database migrations
     - **python-jose + bcrypt** — JWT auth and password hashing
     - **Stripe** — Payment processing and subscription management
+    - **Elasticsearch** — Hybrid keyword + semantic search
+    - **Redis** — Caching and rate-limiting
 
 === "Data Engineering"
     - **Playwright** — Stealth web scraping with WAF bypass
@@ -65,9 +68,19 @@ Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Planned
     - **Docker Compose** — Containerized local development
 
 === "AI Systems"
-    - **LangGraph** — Multi-node ETL extraction and Jarvis NLU pipeline
-    - **Google Gemini** — LLM for structured data extraction and intent classification
+    - **RAG Pipelines** — Retrieval-Augmented Generation over financial docs
+    - **LangGraph** — Multi-agent orchestration and routing
+    - **MCP Tools** — Model Context Protocol for agent tool-use
     - **Langfuse** — AI observability, cost, and latency tracking
+    - **Google Gemini** — LLM for structured data extraction and intent classification
+
+=== "MLOps"
+    - **MLflow** — Experiment tracking and model registry
+    - **PyTorch / XGBoost** — Model training
+    - **GitHub Actions** — CI/CD pipeline
+    - **Docker** — Reproducible build and deployment
+
+=== "Voice AI"
     - **Edge TTS / Google Cloud TTS** — Text-to-speech for Jarvis
     - **Faster-Whisper / Gemini Audio** — Speech-to-text for Jarvis
 

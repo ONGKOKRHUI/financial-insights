@@ -11,14 +11,14 @@
 
 ```mermaid
 graph TD
-    A[Playwright Scraper] -->|PDFs| B[ETL Pipeline - LangGraph]
-    B -->|Structured JSON| C[(PostgreSQL - Supabase)]
+    A[Playwright Scraper] -->|PDFs| B[ETL Pipeline]
+    B -->|Structured JSON| C[(PostgreSQL)]
     C --> D[FastAPI Backend]
     D --> E[Next.js Frontend]
     D --> F[Developer API]
-    D --> G[Jarvis Voice Assistant]
-    H[Stripe] -->|Webhooks| D
-    I[Airflow] -->|Orchestrates| B
+    C -->|Embeddings| G[(pgvector)]
+    G --> H[RAG Pipeline]
+    H --> D
 ```
 
 ---
