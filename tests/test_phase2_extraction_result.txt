@@ -1,0 +1,500 @@
+(venv) PS C:\Users\HP\Documents\repos\financial-insights> & C:\Users\HP\AppData\Local\Programs\Python\Python313\python.exe c:/Users/HP/Documents/repos/financial-insights/tests/test_phase2_extraction.py
+Found 177 PDFs
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2020_Q1.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v2/parse "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-9ylgfo5pojti4z88snydkvnlxwf4 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-9ylgfo5pojti4z88snydkvnlxwf4 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-9ylgfo5pojti4z88snydkvnlxwf4 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-9ylgfo5pojti4z88snydkvnlxwf4?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] Parsed 311,843 chars
+INFO:pipeline.nodes.router:route_content: passing full document (311843 chars) to both branches
+  [Router] table=311,843 | narrative=311,843
+
+[Quantitative]
+  >> Income
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+HTTP/1.1 200 OK"
+    Extracted fields: ['total_assets_bln', 'total_liabilities_bln', 'total_equity_bln', 'cash_and_equivalents_bln', 'total_debt_bln']
+  >> CashFlow
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['operating_cash_flow_bln', 'capital_expenditure_bln', 'free_cash_flow_bln', 'dividends_paid_bln']
+  >> KPI
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header '%' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'net_income_bln', 'eps', 'pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative]
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  Qualitative extracted
+
+DONE processing CIMB_2020_Q1.pdf
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2020_Q2.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+ OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-ufgfzjca1555e3rl1df1vcwd07rl?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] Parsed 323,613 chars
+INFO:pipeline.nodes.router:route_content: passing full document (323613 chars) to both branches
+  [Router] table=323,613 | narrative=323,613
+
+[Quantitative]
+
+[Quantitative]
+[Quantitative]
+  >> Income
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 1.974102441774796 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 1.974102441774796 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 1.974102441774796 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+ as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 2.8334167210117673 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 4.33218779276309 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+INFO:google_genai._api_client:Retrying google.genai._api_client.BaseApiClient._request_once in 1.4599516386033113 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'The request timed out. Please try again.', 'status': 'UNAVAILABLE'}}.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['total_assets_bln', 'total_liabilities_bln', 'total_equity_bln', 'cash_and_equivalents_bln', 'total_debt_bln']
+  >> CashFlow
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['operating_cash_flow_bln', 'capital_expenditure_bln', 'free_cash_flow_bln', 'dividends_paid_bln']
+  >> KPI
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header '%' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'net_income_bln', 'eps', 'pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative]
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  Qualitative extracted
+
+DONE processing CIMB_2020_Q2.pdf
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2020_Q3.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v2/parse "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-glgjg89wwtizvxhrj0re1xrai16e?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] Parsed 328,901 chars
+INFO:pipeline.nodes.router:route_content: passing full document (328901 chars) to both branches
+  [Router] table=328,901 | narrative=328,901
+
+[Quantitative]
+  >> Income
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['total_assets_bln', 'total_liabilities_bln', 'total_equity_bln', 'cash_and_equivalents_bln', 'total_debt_bln']
+  >> CashFlow
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['operating_cash_flow_bln', 'capital_expenditure_bln', 'free_cash_flow_bln', 'dividends_paid_bln']
+  >> KPI
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header '%' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'net_income_bln', 'eps', 'pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative]
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  Qualitative extracted
+
+DONE processing CIMB_2020_Q3.pdf
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2020_Q4.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v2/parse "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+ERROR:asyncio:Task exception was never retrieved
+future: <Task finished name='Task-17' coro=<AsyncClient.aclose() done, defined at C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1978> exception=RuntimeError('Event loop is closed')>
+Traceback (most recent call last):
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1985, in aclose   
+    await self._transport.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\default.py", line 406, in aclose
+    await self._pool.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 353, in aclose
+    await self._close_connections(closing_connections)
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 345, in _close_connections
+    await connection.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection.py", line 173, in aclose
+    await self._connection.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 258, in aclose
+    await self._network_stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_backends\anyio.py", line 53, in aclose
+    await self._stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\streams\tls.py", line 241, in aclose
+    await self.transport_stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py", line 1352, in aclose
+    self._transport.close()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 109, in close
+    self._loop.call_soon(self._call_connection_lost, None)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 833, in call_soon
+    self._check_closed()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 556, in _check_closed     
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+ERROR:asyncio:Task exception was never retrieved
+future: <Task finished name='Task-18' coro=<AsyncClient.aclose() done, defined at C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py:1978> exception=RuntimeError('Event loop is closed')>
+Traceback (most recent call last):
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1985, in aclose   
+    await self._transport.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\default.py", line 406, in aclose
+    await self._pool.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 353, in aclose
+    await self._close_connections(closing_connections)
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 345, in _close_connections
+    await connection.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection.py", line 173, in aclose
+    await self._connection.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 258, in aclose
+    await self._network_stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_backends\anyio.py", line 53, in aclose
+    await self._stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\streams\tls.py", line 241, in aclose
+    await self.transport_stream.aclose()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py", line 1352, in aclose
+    self._transport.close()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 109, in close
+    self._loop.call_soon(self._call_connection_lost, None)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 833, in call_soon
+    self._check_closed()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 556, in _check_closed     
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-myzqp36c2ws0634v2fioa20s7krb?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] Parsed 337,161 chars
+INFO:pipeline.nodes.router:route_content: passing full document (337161 chars) to both branches
+  [Router] table=337,161 | narrative=337,161
+
+[Quantitative]
+  >> Income
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['total_assets_bln', 'total_liabilities_bln', 'total_equity_bln', 'cash_and_equivalents_bln', 'total_debt_bln']
+  >> CashFlow
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['operating_cash_flow_bln', 'capital_expenditure_bln', 'free_cash_flow_bln', 'dividends_paid_bln']
+  >> KPI
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header '%' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'net_income_bln', 'eps', 'pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative]
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  Qualitative extracted
+
+DONE processing CIMB_2020_Q4.pdf
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2021_Q1.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v2/parse "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET https://api.cloud.llamaindex.ai/api/v2/parse/pjb-x19e21v0s165hi8zu3zti1l5nd73?expand=markdown_full "HTTP/1.1 200 OK"
+  [OK] Parsed 316,401 chars
+INFO:pipeline.nodes.router:route_content: passing full document (316401 chars) to both branches
+  [Router] table=316,401 | narrative=316,401
+
+[Quantitative]
+  >> Income
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'gross_profit_bln', 'operating_income_bln', 'net_income_bln', 'eps', 'gross_margin_pct', 'operating_margin_pct', 'net_margin_pct']
+  >> Balance
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['total_assets_bln', 'total_liabilities_bln', 'total_equity_bln', 'cash_and_equivalents_bln', 'total_debt_bln']
+  >> CashFlow
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+    Extracted fields: ['operating_cash_flow_bln', 'capital_expenditure_bln', 'free_cash_flow_bln', 'dividends_paid_bln']
+  >> KPI
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+WARNING:pipeline.nodes.quantitative:Could not parse raw_value '4,801 *': could not convert string to float: '4801*'
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header 'sen' — no multiplier applied
+WARNING:pipeline.nodes.quantitative:Unrecognised unit header '%' — no multiplier applied
+    Extracted fields: ['revenue_bln', 'net_income_bln', 'eps', 'pe_ratio', 'roe_pct', 'roace_pct', 'debt_to_equity', 'dividend_yield_pct']
+
+[Qualitative]
+INFO:google_genai.models:AFC is enabled with max remote calls: 10.
+INFO:httpx:HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+  Qualitative extracted
+
+DONE processing CIMB_2021_Q1.pdf
+
+==============================
+Processing: src\scraper\data\raw\CIMB\CIMB_2021_Q2.pdf
+  [LlamaParse] Uploading PDF...
+INFO:httpx:HTTP Request: POST https://api.cloud.llamaindex.ai/api/v1/beta/files "HTTP/1.1 201 Created"
+Traceback (most recent call last):
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\HP\Documents\repos\financial-insights\src\pipeline\nodes\parser.py", line 60, in _llamaparse
+    result = await client.parsing.parse(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\llama_cloud\resources\parsing.py", line 1267, in parse
+    job = await self.create(
+          ^^^^^^^^^^^^^^^^^^
+    ...<22 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\llama_cloud\resources\parsing.py", line 954, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+    ...<36 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\llama_cloud\_base_client.py", line 1856, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\llama_cloud\_base_client.py", line 1591, in request
+    response = await self._client.send(
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1629, in send     
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpx\_transports\default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        pool_request.request
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\connection.py", line 103, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 136, in handle_async_request
+    raise exc
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_async\http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.READ_NUM_BYTES, timeout=timeout
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\httpcore\_backends\anyio.py", line 35, in read
+    return await self._stream.receive(max_bytes=max_bytes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\streams\tls.py", line 244, in receive
+    data = await self._call_sslobject_method(self._ssl_object.read, max_bytes)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\streams\tls.py", line 187, in _call_sslobject_method
+    data = await self.transport_stream.receive()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\site-packages\anyio\_backends\_asyncio.py", line 1292, in receive
+    await self._protocol.read_event.wait()
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\locks.py", line 213, in wait
+    await fut
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\HP\Documents\repos\financial-insights\tests\test_phase2_extraction.py", line 191, in <module>
+  File "c:\Users\HP\Documents\repos\financial-insights\tests\test_phase2_extraction.py", line 185, in main
+  File "c:\Users\HP\Documents\repos\financial-insights\tests\test_phase2_extraction.py", line 134, in process_single_pdf
+    raw_text = _get_text_from_pdf(str(pdf_path), not args.no_llama)
+  File "c:\Users\HP\Documents\repos\financial-insights\tests\test_phase2_extraction.py", line 34, in _get_text_from_pdf 
+    text = asyncio.run(_llamaparse(pdf_path))
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\HP\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+(venv) PS C:\Users\HP\Documents\repos\financial-insights> 

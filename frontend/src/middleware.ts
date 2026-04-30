@@ -54,12 +54,22 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Public routes that do not require authentication.
+ * The `/companies` path is intentionally public — it displays company data
+ * that can be fetched without credentials, and is linked to from the home
+ * page for free-tier users.
+ */
+const PUBLIC_PATHS = ["/companies"];
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("access_token")?.value ?? null;
   const payload = token ? decodeJwtPayload(token) : null;
+  // Accept any valid, decodable JWT as authenticated — the role field is used
+  // only for fine-grained RBAC below, not for the authentication gate itself.
   const role = (payload?.role as string) ?? null;
-  const isAuthenticated = !!role;
+  const isAuthenticated = !!(payload?.sub ?? role);
 
   // Authenticated users visiting auth pages are sent to the main hub.
   if (pathname.startsWith("/auth")) {
@@ -68,6 +78,11 @@ export function middleware(req: NextRequest) {
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
+    return NextResponse.next();
+  }
+
+  // Public routes — no authentication required.
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
 

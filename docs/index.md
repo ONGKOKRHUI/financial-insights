@@ -17,10 +17,10 @@ FinSight API bridges the gap between raw financial disclosures and actionable de
 | [Platform Overview](platform-overview/overview.md) | Goals, monetization, and roadmap | ✅ Current |
 | [Architecture](architecture/system-architecture.md) | System design and component map | ✅ Current |
 | [Data Engineering](data-engineering/scraping-system.md) | Scraping, parsing, and ETL pipeline | ✅ Current |
-| [Backend](backend/fastapi-architecture.md) | FastAPI services and database schema | ✅ Current |
+| [Backend](backend/fastapi-architecture.md) | FastAPI services, auth, RBAC, and database schema | ✅ Current |
 | [API Reference](api-reference/overview.md) | Endpoints, auth, and usage examples | ✅ Current |
-| [Frontend](frontend/architecture.md) | Next.js dashboard and state management | ✅ Current |
-| [AI Systems](ai-systems/rag-pipeline.md) | RAG, LLM analysis, and agents | 🚧 Planned |
+| [Frontend](frontend/architecture.md) | Next.js dashboard, routing, and state management | ✅ Current |
+| [AI Systems](ai-systems/jarvis-overview.md) | Jarvis voice assistant, intent classification | ✅ Current |
 | [MLOps](mlops/model-training.md) | Model training, tracking, and deployment | 🚧 Planned |
 | [System Design](system-design/scaling.md) | Scaling, reliability, and data quality | 🚧 Planned |
 | [Development](development/environment-setup.md) | Local setup and contribution guide | ✅ Current |
@@ -30,12 +30,12 @@ FinSight API bridges the gap between raw financial disclosures and actionable de
 ## Development Phases
 
 ```
-Phase 1 ── MVP & Data Acquisition          ← Weeks 1–3
-Phase 2 ── ETL Pipeline & Database         ← Weeks 4–7
-Phase 3 ── RAG & Backend API               ← Weeks 8–11
-Phase 4 ── Full-Stack Dashboard & Auth     ← Weeks 12–16
-Phase 5 ── Agentic Workflows               ← Weeks 17–19
-Phase 6 ── ML Models & Production CI/CD   ← Weeks 21–24
+Phase 1 ── MVP & Data Acquisition          ← Weeks 1–3   ✅ Complete
+Phase 2 ── ETL Pipeline & Database         ← Weeks 4–7   ✅ Complete
+Phase 3 ── Backend API & Frontend          ← Weeks 8–11  ✅ Complete
+Phase 4 ── Auth, RBAC, Stripe & Dashboard  ← Weeks 12–16 ✅ Complete
+Phase 5 ── Agentic Workflows & RAG         ← Weeks 17–19 🚧 Planned
+Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Planned
 ```
 
 ---
@@ -43,31 +43,37 @@ Phase 6 ── ML Models & Production CI/CD   ← Weeks 21–24
 ## Tech Stack at a Glance
 
 === "Frontend"
-    - **Next.js** — React framework for the web dashboard
+    - **Next.js 15** — React 19 framework for the web dashboard
     - **Zustand** — Lightweight client-side state management
     - **TanStack Query** — Server state and data fetching
-    - **Recharts / Chart.js** — Financial data visualizations
+    - **Recharts** — Financial data visualizations
+    - **TailwindCSS v4** — Utility-first CSS framework
 
 === "Backend"
     - **FastAPI** — High-performance Python API framework
-    - **PostgreSQL + pgvector** — Relational store + vector embeddings
-    - **Elasticsearch** — Hybrid keyword + semantic search
-    - **Redis** — Caching and rate-limiting
+    - **PostgreSQL** — Relational database (Supabase-hosted)
+    - **SQLAlchemy 2.x** — ORM with declarative models
+    - **Alembic** — Database migrations
+    - **python-jose + bcrypt** — JWT auth and password hashing
+    - **Stripe** — Payment processing and subscription management
 
 === "Data Engineering"
-    - **Playwright / Selenium** — Dynamic web scraping
-    - **PyMuPDF** — PDF parsing and table extraction
-    - **Airflow / Prefect** — Pipeline orchestration
-    - **Docker** — Containerized pipeline execution
+    - **Playwright** — Stealth web scraping with WAF bypass
+    - **LlamaParse** — AI-powered PDF → Markdown conversion
+    - **PyMuPDF** — Fallback PDF text extraction
+    - **Apache Airflow** — Pipeline orchestration (LocalExecutor)
+    - **Docker Compose** — Containerized local development
 
 === "AI Systems"
-    - **RAG Pipelines** — Retrieval-Augmented Generation over financial docs
-    - **LangGraph** — Multi-agent orchestration and routing
-    - **MCP Tools** — Model Context Protocol for agent tool-use
+    - **LangGraph** — Multi-node ETL extraction and Jarvis NLU pipeline
+    - **Google Gemini** — LLM for structured data extraction and intent classification
     - **Langfuse** — AI observability, cost, and latency tracking
+    - **Edge TTS / Google Cloud TTS** — Text-to-speech for Jarvis
+    - **Faster-Whisper / Gemini Audio** — Speech-to-text for Jarvis
 
-=== "MLOps"
-    - **MLflow** — Experiment tracking and model registry
-    - **PyTorch / XGBoost** — Model training
-    - **GitHub Actions** — CI/CD pipeline
-    - **Docker** — Reproducible build and deployment
+=== "Infrastructure"
+    - **Vercel** — Frontend hosting with edge middleware
+    - **Render** — Backend API hosting
+    - **Supabase** — Managed PostgreSQL database
+    - **GitHub Actions** — CI/CD pipelines
+    - **Docker Compose** — Local dev orchestration

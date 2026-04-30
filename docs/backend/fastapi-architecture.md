@@ -1,8 +1,10 @@
 # FastAPI Architecture
 
-!!! success "Phase 3 — Live"
+!!! success "Phase 4 — Live"
     The FastAPI application is deployed on Render and accessible at
-    `https://finsight-api.onrender.com`.
+    `https://finsight-api.onrender.com`.  Phase 4 adds authentication,
+    RBAC, Stripe integration, the Jarvis voice assistant, and admin
+    management endpoints.
 
 ---
 
@@ -12,21 +14,43 @@
 src/backend/
 ├── main.py               # App factory: FastAPI instance, CORS, router registration, lifespan
 ├── database.py           # SQLAlchemy engine, SessionLocal, get_db dependency
-├── models.py             # ORM models (Company, KPISummary, IncomeStatement, BalanceSheet, CashFlow, QualitativeInsight)
+├── models.py             # ORM models (Company, KPISummary, IncomeStatement, BalanceSheet,
+│                         #   CashFlow, QualitativeInsight, User, RefreshToken, APIKey)
 ├── schemas.py            # Pydantic request/response schemas
 ├── seed.py               # Idempotent seeder — populates all tables from mock_data on startup
-├── requirements.txt      # Runtime + test dependencies
-├── Dockerfile            # Production container image
+├── requirements.txt      # Runtime dependencies
+├── requirements-whisper.txt  # Optional Whisper ASR dependencies
+├── Dockerfile            # Local development container image
 ├── render.yaml           # Render deployment manifest
+├── alembic.ini           # Alembic migration configuration
+├── alembic/
+│   ├── env.py            # Migration environment
+│   └── versions/
+│       └── 001_add_auth_tables.py  # Phase 4 auth migration
+├── auth/
+│   ├── __init__.py       # Auth package exports
+│   ├── jwt.py            # JWT creation (access/refresh) and validation
+│   ├── password.py       # bcrypt hashing, API key generation (SHA-256)
+│   └── dependencies.py   # FastAPI deps: get_current_user, require_role, get_api_key_user
 ├── data/
 │   └── mock_data.py      # Static mock data for 8 companies, 5 fiscal years each
 ├── routers/
-│   ├── companies.py      # GET /companies, /companies/{ticker}, /companies/{ticker}/summary, /companies/{ticker}/qualitative
+│   ├── auth.py           # POST /auth/register|login|refresh|logout
+│   ├── users.py          # GET /users/me, POST /users/me/api-key
+│   ├── admin.py          # GET/PATCH/DELETE /admin/users (admin-only)
+│   ├── companies.py      # GET /companies, /companies/{ticker}, /companies/{ticker}/summary|qualitative
 │   ├── financials.py     # GET /financials/{ticker}/income-statement|balance-sheet|cash-flow
-│   └── search.py         # POST /search (unified query endpoint)
+│   ├── search.py         # POST /search (unified query, requires paid/admin)
+│   ├── jarvis.py         # POST /api/jarvis/text-intent|voice|synthesize (voice assistant)
+│   └── webhooks.py       # POST /webhooks/stripe (Stripe subscription lifecycle)
+├── services/
+│   ├── asr.py            # Speech-to-text (Whisper local or Gemini API)
+│   ├── jarvis_intent.py  # Intent classification (keyword, LangGraph, or Dify)
+│   ├── langgraph_intent.py  # Full LangGraph NLU pipeline
+│   └── tts.py            # Text-to-speech (Edge TTS or Google Cloud)
 └── tests/
     ├── conftest.py       # SQLite fixtures, dependency override, session-scoped TestClient
-    └── test_api.py       # 13 tests covering all endpoints
+    └── test_api.py       # 13 tests covering company and financial endpoints
 ```
 
 ---
@@ -56,22 +80,43 @@ checks for an existing row before inserting.
 ## Middleware Stack
 
 | Middleware | Configuration                                      |
-|------------|----------------------------------------------------|
-| CORS       | Origins from `ALLOWED_ORIGINS` env var (default `*`); methods `GET`, `POST` |
+|------------|-----------------------------------------------------|
+| CORS       | Origins from `ALLOWED_ORIGINS` env var; `allow_credentials=True`; all methods and headers allowed |
 
-Additional middleware (rate limiter, request logger, auth) is planned for Phase 4+.
+Authentication is enforced at the dependency level (not middleware) via `get_current_user`,
+`require_role`, and `require_api_key_or_session` callables injected into route handlers.
 
 ---
 
 ## Routers
 
-| Router         | Prefix        | Methods   | Endpoints                                                      |
-|----------------|---------------|-----------|----------------------------------------------------------------|
-| `companies`    | `/companies`  | GET       | list, detail, KPI summary, qualitative insight                 |
-| `financials`   | `/financials` | GET       | income statement, balance sheet, cash flow (per ticker)        |
-| `search`       | `/search`     | POST      | unified payload-based query across all statement types         |
+| Router         | Prefix         | Methods        | Auth Required  | Endpoints                                                      |
+|----------------|----------------|----------------|----------------|----------------------------------------------------------------|
+| `auth`         | `/auth`        | POST           | No (public)    | register, login, refresh, logout                               |
+| `users`        | `/users`       | GET, POST      | Session cookie | profile (GET /me), API key management (POST /me/api-key)       |
+| `admin`        | `/admin`       | GET, PATCH, DELETE | Admin role | user list, update role/status, delete user                     |
+| `companies`    | `/companies`   | GET            | No (public)    | list, detail, KPI summary, qualitative insight                 |
+| `financials`   | `/financials`  | GET            | No (public)    | income statement, balance sheet, cash flow (per ticker)        |
+| `search`       | `/search`      | POST           | Paid/Admin     | unified payload-based query across all statement types         |
+| `jarvis`       | `/api/jarvis`  | POST, GET      | No             | text-intent, voice, synthesize, legacy, health                 |
+| `webhooks`     | `/webhooks`    | POST           | Stripe signature | Stripe subscription lifecycle events                         |
 
-All routers use `Depends(get_db)` for database session injection.
+All data routers use `Depends(get_db)` for database session injection.
+Protected routers additionally use `Depends(get_current_user)` and/or `Depends(require_role(...))`.
+
+---
+
+## Authentication & RBAC
+
+Phase 4 implements a cookie-based JWT authentication system:
+
+- **Access Token** — 15-minute JWT stored in `access_token` HttpOnly cookie
+- **Refresh Token** — 7-day JWT stored in `refresh_token` HttpOnly cookie, hash persisted in DB
+- **API Keys** — `fsk_`-prefixed keys for programmatic access (paid/admin tier), SHA-256 hashed in DB
+
+Role hierarchy: `free` < `paid` < `admin`
+
+See [Authentication](authentication.md) and [RBAC](rbac.md) for details.
 
 ---
 
@@ -89,7 +134,16 @@ def get_db():
         db.close()
 ```
 
-Tests override this dependency with a session bound to an in-memory SQLite engine
+**`get_current_user`** (in `auth/dependencies.py`) — reads the `access_token`
+cookie, decodes the JWT, and returns the `User` ORM object.
+
+**`require_role(*roles)`** (in `auth/dependencies.py`) — factory that returns a
+dependency checking `current_user.role in roles`.
+
+**`require_api_key_or_session`** (in `auth/dependencies.py`) — dual-auth dependency
+that accepts either a session cookie or an `X-API-Key` header.
+
+Tests override `get_db` with a session bound to an in-memory SQLite engine
 (see `tests/conftest.py`).
 
 ---
@@ -100,7 +154,7 @@ Tests override this dependency with a session bound to an in-memory SQLite engin
 |------------------|-----------------------------------------------------------|
 | Production DB    | PostgreSQL on Supabase (connection string via `DATABASE_URL` env var) |
 | ORM              | SQLAlchemy 2.x (sync, declarative)                        |
-| Migrations       | None — `create_all` at startup; schema is stable          |
+| Migrations       | Alembic — `001_add_auth_tables.py` for Phase 4 auth tables |
 | Test DB          | In-memory SQLite with `StaticPool`                        |
 
 The `DATABASE_URL` env var is read in `database.py`. Render's `postgres://` prefix is
@@ -116,6 +170,16 @@ All configuration is via environment variables:
 |--------------------|----------------------------------------|-----------------------------------------|
 | `DATABASE_URL`     | `postgresql://postgres:postgres@localhost:5432/finsight` | PostgreSQL connection string |
 | `ALLOWED_ORIGINS`  | `*`                                    | Comma-separated CORS allowed origins    |
+| `SECRET_KEY`       | *(required)*                           | JWT signing secret (HS256)              |
+| `ALGORITHM`        | `HS256`                                | JWT algorithm                           |
+| `COOKIE_SECURE`    | `true`                                 | Set to `false` for local HTTP dev       |
+| `STRIPE_SECRET_KEY`| *(required for payments)*              | Stripe API secret key                   |
+| `STRIPE_WEBHOOK_SECRET` | *(required for webhooks)*         | Stripe webhook signing secret           |
+| `STRIPE_PRO_PRICE_ID` | *(required for checkout)*           | Stripe Price ID for Pro plan            |
+| `JARVIS_ASR_ENGINE`| `whisper`                              | ASR engine: `whisper` or `gemini`       |
+| `JARVIS_INTENT_ENGINE` | `langgraph`                        | Intent engine: `keyword`, `langgraph`, or `dify` |
+| `JARVIS_TTS_ENGINE`| `edge`                                 | TTS engine: `edge` or `google`          |
+| `GOOGLE_API_KEY`   | *(required for Gemini)*                | Google AI API key                       |
 
 Production values are set in the Render dashboard. Local development values live
 in `.env` (see `.env.example`).
@@ -130,4 +194,4 @@ FastAPI's default exception handlers are used:
 - **`HTTPException`** → HTTP status as raised, with a `detail` string
 - Unhandled exceptions → HTTP 500
 
-No custom global exception handler is registered in Phase 3.
+Auth endpoints return descriptive error messages via `HTTPException(status_code=401, detail="...")`.

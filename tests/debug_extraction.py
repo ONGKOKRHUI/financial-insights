@@ -28,7 +28,9 @@ if str(_SRC_DIR) not in sys.path:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(_REPO_ROOT / ".env")
+    #load_dotenv(_REPO_ROOT / ".env")
+    load_dotenv(_REPO_ROOT / ".env", override=True)
+
 except ImportError:
     pass
 
@@ -218,6 +220,8 @@ def main():
     if not os.getenv("GOOGLE_API_KEY"):
         print(f"{RED}ERROR: GOOGLE_API_KEY not set in environment / .env{RESET}")
         sys.exit(1)
+    else:
+        print(f"{GREEN}GOOGLE_API_KEY is set in environment which is {os.getenv('GOOGLE_API_KEY')}{RESET}")
 
     metadata = {"ticker": "SUNWAY", "fiscal_year": 2021, "report_period": "Q1"}
 

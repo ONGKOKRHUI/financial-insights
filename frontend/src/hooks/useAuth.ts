@@ -109,23 +109,30 @@ export function useCurrentUser() {
 /**
  * Mutation hook for logging in.
  *
- * On success: sets the user in the Zustand store and navigates to ``/dashboard``.
+ * On success: sets the user in the Zustand store and navigates to
+ * ``redirectTo`` (if provided and same-origin) or ``/``.
  * On error: the ``error`` property of the returned mutation result contains
  * the error message to display to the user.
  *
+ * @param redirectTo - Optional path to navigate to after a successful login.
+ *                     Must start with ``/`` to prevent open-redirect attacks.
+ *                     Defaults to ``/``.
  * @returns TanStack Query mutation result.
  */
-export function useLogin() {
+export function useLogin(redirectTo = "/") {
   const queryClient = useQueryClient();
   const { setUser } = useAuthStore();
   const router = useRouter();
+
+  // Guard against open-redirect: only allow relative paths.
+  const safeDest = redirectTo.startsWith("/") ? redirectTo : "/";
 
   return useMutation({
     mutationFn: postLogin,
     onSuccess: (user) => {
       setUser(user);
       queryClient.setQueryData(authQueryKeys.currentUser(), user);
-      router.push("/");
+      router.push(safeDest);
     },
   });
 }
