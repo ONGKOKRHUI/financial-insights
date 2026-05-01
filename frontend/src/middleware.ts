@@ -73,6 +73,13 @@ export function middleware(req: NextRequest) {
   const role = (payload?.role as string) ?? null;
   const isAuthenticated = !!(payload?.sub ?? role);
 
+  // Skip middleware for non-browser requests (build, server fetch, etc.)
+  const isBrowser = req.headers.get("sec-fetch-dest") !== null;
+
+  if (!isBrowser) {
+    return NextResponse.next();
+  }
+
   // Authenticated users visiting auth pages are sent to the main hub.
   if (pathname.startsWith("/auth")) {
     if (isAuthenticated) {
