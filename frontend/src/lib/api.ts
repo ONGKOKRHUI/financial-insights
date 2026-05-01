@@ -137,7 +137,7 @@ export const api = {
       ),
 
     /** Get API key prefix info (paid/admin only). */
-    apiKeyInfo: () => mutateJSON<{ key_prefix: string; created_at: string }>("/users/api-key", "POST"),
+    apiKeyInfo: () => fetchJSON<{ key_prefix: string; created_at: string }>("/users/api-key"),
 
     /** Rotate/generate a new API key (paid/admin only). */
     rotateApiKey: () =>

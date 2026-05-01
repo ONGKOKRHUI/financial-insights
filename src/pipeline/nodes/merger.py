@@ -42,7 +42,7 @@ def merge_and_validate(state: dict) -> dict:
     metadata: dict = state.get("metadata", {})
     quantitative_data: dict = state.get("quantitative_data", {})
     qualitative_data: dict = state.get("qualitative_data", {})
-    errors: list = list(state.get("errors", []))
+    new_errors: list = []
 
     ticker: str = metadata.get("ticker", "UNKNOWN")
     fiscal_year: int = metadata.get("fiscal_year") or 0
@@ -85,7 +85,7 @@ def merge_and_validate(state: dict) -> dict:
         validated_payload = payload.model_dump()
         logger.info("Payload validated for %s FY%s", ticker, fiscal_year)
     except ValidationError as exc:
-        errors.append(f"Final payload validation failed: {exc}")
+        new_errors.append(f"Final payload validation failed: {exc}")
         logger.error("Final validation error: %s", exc)
         validated_payload = {
             "ticker": ticker,
@@ -95,7 +95,6 @@ def merge_and_validate(state: dict) -> dict:
         }
 
     return {
-        **state,
         "validated_payload": validated_payload,
-        "errors": errors,
+        "errors": new_errors,
     }

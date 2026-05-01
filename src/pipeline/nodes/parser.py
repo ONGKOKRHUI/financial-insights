@@ -5,6 +5,7 @@ Falls back to PyMuPDF (fitz) if LlamaParse fails or the API key is absent.
 """
 
 import asyncio
+import concurrent.futures
 import logging
 import os
 import re
@@ -12,6 +13,24 @@ import re
 logger = logging.getLogger(__name__)
 
 _LLAMA_API_KEY = os.getenv("LLAMA_CLOUD_API_KEY", "")
+
+
+def _run_async(coro):
+    """Run a coroutine safely regardless of whether an event loop is already running.
+
+    asyncio.run() creates a new event loop and raises RuntimeError if one is
+    already running (e.g. inside FastAPI, Airflow 2.9+, or a test using
+    asyncio.run()).  When a running loop is detected the coroutine is executed
+    in a fresh thread that has its own event loop.
+    """
+    try:
+        asyncio.get_running_loop()
+        # A loop is already running — delegate to a dedicated thread.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    except RuntimeError:
+        # No running loop — safe to call asyncio.run() directly.
+        return asyncio.run(coro)
 
 
 def _extract_metadata_from_path(pdf_path: str) -> dict:
@@ -95,10 +114,9 @@ def parse_pdf(state: dict) -> dict:
     if _LLAMA_API_KEY:
         try:
             logger.info("Parsing %s with LlamaParse …", pdf_path)
-            markdown_text = asyncio.run(_llamaparse(pdf_path))
+            markdown_text = _run_async(_llamaparse(pdf_path))
             logger.info("LlamaParse succeeded (%d chars)", len(markdown_text))
         except Exception as exc:
-            errors.append(f"LlamaParse failed: {exc}")
             logger.error("LlamaParse failed for %s: %s", pdf_path, exc)
             raise RuntimeError(f"LlamaParse failed and no fallback is allowed when LLAMA_CLOUD_API_KEY is set: {exc}") from exc
     else:

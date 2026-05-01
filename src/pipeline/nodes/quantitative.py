@@ -226,6 +226,8 @@ def extract_quantitative(state: dict) -> dict:
         quantitative_data[key] = extracted
         logger.info("Extracted %s: %s", statement_type, extracted)
 
+    quantitative_data = normalize_financial_data(quantitative_data)
+
     return {
         "quantitative_data": quantitative_data,
         "errors": errors,

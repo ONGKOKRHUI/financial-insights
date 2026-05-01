@@ -48,7 +48,9 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(payload));
+    const decoded = JSON.parse(atob(payload));
+    if (decoded.exp && Date.now() / 1000 > decoded.exp) return null;
+    return decoded;
   } catch {
     return null;
   }

@@ -77,14 +77,14 @@ def _upsert_income_statement(conn, ticker: str, fiscal_year: int, data: dict) ->
             (:ticker, :fiscal_year, :revenue_bln, :gross_profit_bln, :operating_income_bln,
              :net_income_bln, :eps, :gross_margin_pct, :operating_margin_pct, :net_margin_pct)
         ON CONFLICT (ticker, fiscal_year) DO UPDATE SET
-            revenue_bln            = EXCLUDED.revenue_bln,
-            gross_profit_bln       = EXCLUDED.gross_profit_bln,
-            operating_income_bln   = EXCLUDED.operating_income_bln,
-            net_income_bln         = EXCLUDED.net_income_bln,
-            eps                    = EXCLUDED.eps,
-            gross_margin_pct       = EXCLUDED.gross_margin_pct,
-            operating_margin_pct   = EXCLUDED.operating_margin_pct,
-            net_margin_pct         = EXCLUDED.net_margin_pct
+            revenue_bln            = COALESCE(EXCLUDED.revenue_bln,          income_statements.revenue_bln),
+            gross_profit_bln       = COALESCE(EXCLUDED.gross_profit_bln,     income_statements.gross_profit_bln),
+            operating_income_bln   = COALESCE(EXCLUDED.operating_income_bln, income_statements.operating_income_bln),
+            net_income_bln         = COALESCE(EXCLUDED.net_income_bln,       income_statements.net_income_bln),
+            eps                    = COALESCE(EXCLUDED.eps,                  income_statements.eps),
+            gross_margin_pct       = COALESCE(EXCLUDED.gross_margin_pct,     income_statements.gross_margin_pct),
+            operating_margin_pct   = COALESCE(EXCLUDED.operating_margin_pct, income_statements.operating_margin_pct),
+            net_margin_pct         = COALESCE(EXCLUDED.net_margin_pct,       income_statements.net_margin_pct)
         """),
         {"ticker": ticker, "fiscal_year": fiscal_year, **data},
     )
@@ -102,11 +102,11 @@ def _upsert_balance_sheet(conn, ticker: str, fiscal_year: int, data: dict) -> No
             (:ticker, :fiscal_year, :total_assets_bln, :total_liabilities_bln,
              :total_equity_bln, :cash_and_equivalents_bln, :total_debt_bln)
         ON CONFLICT (ticker, fiscal_year) DO UPDATE SET
-            total_assets_bln       = EXCLUDED.total_assets_bln,
-            total_liabilities_bln  = EXCLUDED.total_liabilities_bln,
-            total_equity_bln       = EXCLUDED.total_equity_bln,
-            cash_and_equivalents_bln = EXCLUDED.cash_and_equivalents_bln,
-            total_debt_bln         = EXCLUDED.total_debt_bln
+            total_assets_bln         = COALESCE(EXCLUDED.total_assets_bln,         balance_sheets.total_assets_bln),
+            total_liabilities_bln    = COALESCE(EXCLUDED.total_liabilities_bln,    balance_sheets.total_liabilities_bln),
+            total_equity_bln         = COALESCE(EXCLUDED.total_equity_bln,         balance_sheets.total_equity_bln),
+            cash_and_equivalents_bln = COALESCE(EXCLUDED.cash_and_equivalents_bln, balance_sheets.cash_and_equivalents_bln),
+            total_debt_bln           = COALESCE(EXCLUDED.total_debt_bln,           balance_sheets.total_debt_bln)
         """),
         {"ticker": ticker, "fiscal_year": fiscal_year, **data},
     )
@@ -124,10 +124,10 @@ def _upsert_cash_flow(conn, ticker: str, fiscal_year: int, data: dict) -> None:
             (:ticker, :fiscal_year, :operating_cash_flow_bln, :capital_expenditure_bln,
              :free_cash_flow_bln, :dividends_paid_bln)
         ON CONFLICT (ticker, fiscal_year) DO UPDATE SET
-            operating_cash_flow_bln  = EXCLUDED.operating_cash_flow_bln,
-            capital_expenditure_bln  = EXCLUDED.capital_expenditure_bln,
-            free_cash_flow_bln       = EXCLUDED.free_cash_flow_bln,
-            dividends_paid_bln       = EXCLUDED.dividends_paid_bln
+            operating_cash_flow_bln  = COALESCE(EXCLUDED.operating_cash_flow_bln,  cash_flows.operating_cash_flow_bln),
+            capital_expenditure_bln  = COALESCE(EXCLUDED.capital_expenditure_bln,  cash_flows.capital_expenditure_bln),
+            free_cash_flow_bln       = COALESCE(EXCLUDED.free_cash_flow_bln,       cash_flows.free_cash_flow_bln),
+            dividends_paid_bln       = COALESCE(EXCLUDED.dividends_paid_bln,       cash_flows.dividends_paid_bln)
         """),
         {"ticker": ticker, "fiscal_year": fiscal_year, **data},
     )
@@ -171,14 +171,14 @@ def _upsert_kpi_summary(conn, ticker: str, fiscal_year: int, data: dict) -> None
             (:ticker, :fiscal_year, :revenue_bln, :net_income_bln, :eps, :pe_ratio,
              :roe_pct, :roace_pct, :debt_to_equity, :dividend_yield_pct)
         ON CONFLICT (ticker, fiscal_year) DO UPDATE SET
-            revenue_bln       = EXCLUDED.revenue_bln,
-            net_income_bln    = EXCLUDED.net_income_bln,
-            eps               = EXCLUDED.eps,
-            pe_ratio          = EXCLUDED.pe_ratio,
-            roe_pct           = EXCLUDED.roe_pct,
-            roace_pct         = EXCLUDED.roace_pct,
-            debt_to_equity    = EXCLUDED.debt_to_equity,
-            dividend_yield_pct = EXCLUDED.dividend_yield_pct
+            revenue_bln        = COALESCE(EXCLUDED.revenue_bln,        kpi_summaries.revenue_bln),
+            net_income_bln     = COALESCE(EXCLUDED.net_income_bln,     kpi_summaries.net_income_bln),
+            eps                = COALESCE(EXCLUDED.eps,                kpi_summaries.eps),
+            pe_ratio           = COALESCE(EXCLUDED.pe_ratio,           kpi_summaries.pe_ratio),
+            roe_pct            = COALESCE(EXCLUDED.roe_pct,            kpi_summaries.roe_pct),
+            roace_pct          = COALESCE(EXCLUDED.roace_pct,          kpi_summaries.roace_pct),
+            debt_to_equity     = COALESCE(EXCLUDED.debt_to_equity,     kpi_summaries.debt_to_equity),
+            dividend_yield_pct = COALESCE(EXCLUDED.dividend_yield_pct, kpi_summaries.dividend_yield_pct)
         """),
         {"ticker": ticker, "fiscal_year": fiscal_year, **data},
     )

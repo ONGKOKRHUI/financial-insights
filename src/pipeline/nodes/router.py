@@ -14,15 +14,14 @@ logger = logging.getLogger(__name__)
 def route_content(state: dict) -> dict:
     """LangGraph node: pass markdown_text to both table and narrative branches."""
     markdown_text: str = state.get("markdown_text", "")
-    errors: list = list(state.get("errors", []))
+    new_errors: list = []
 
     if not markdown_text:
-        errors.append("route_content: empty markdown_text — skipping split")
+        new_errors.append("route_content: empty markdown_text — skipping split")
         return {
-            **state,
             "table_markdown": "",
             "narrative_markdown": "",
-            "errors": errors,
+            "errors": new_errors,
         }
 
     logger.info(
@@ -31,8 +30,7 @@ def route_content(state: dict) -> dict:
     )
 
     return {
-        **state,
         "table_markdown": markdown_text,
         "narrative_markdown": markdown_text,
-        "errors": errors,
+        "errors": new_errors,
     }

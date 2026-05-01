@@ -1,0 +1,480 @@
+"""Unit tests for bugs identified in SUGGESTIONS.md.
+
+Covers all 10 reported bugs.  BUG-6 and BUG-7 are NOT present in the codebase
+(they were already fixed before the audit) — those tests confirm the fix exists.
+
+No live external services are required:
+  - LLM calls are mocked via unittest.mock
+  - No live PostgreSQL connection needed
+  - No Stripe calls
+
+Run from the repository root:
+    pytest tests/test_bugs.py -v
+"""
+
+import asyncio
+import base64
+import json
+import os
+import sys
+import time
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# Path bootstrap — make src packages importable
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# `pipeline` is a package under src/  → add src/ so "import pipeline" works
+sys.path.insert(0, os.path.join(_REPO_ROOT, "src"))
+# backend modules (auth, models, database…) live directly under src/backend/
+sys.path.insert(0, os.path.join(_REPO_ROOT, "src", "backend"))
+
+
+# ===========================================================================
+# BUG-1 · parser.py — asyncio.run() inside LangGraph node crashes in async context
+# ===========================================================================
+
+def test_bug1_parse_pdf_works_inside_running_event_loop(tmp_path):
+    """parse_pdf must not raise RuntimeError when called from inside an async event loop.
+
+    Before fix: asyncio.run() raises "This event loop is already running."
+    After fix:  uses a thread-pool fallback so it works in any context.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    # Create a minimal fake PDF so fitz/PyMuPDF fallback doesn't run
+    dummy_pdf = tmp_path / "TEST_2024_Q1.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 fake")
+
+    async def _run_parse_from_async():
+        """Simulates calling parse_pdf from within a running event loop."""
+        with patch("pipeline.nodes.parser._LLAMA_API_KEY", "fake-key"), \
+             patch("pipeline.nodes.parser._llamaparse", new_callable=AsyncMock, return_value="# markdown content"):
+            from pipeline.nodes.parser import parse_pdf
+            state = {"pdf_path": str(dummy_pdf), "errors": [], "metadata": {}}
+            return parse_pdf(state)
+
+    # asyncio.run() creates a new event loop; the function itself runs parse_pdf
+    # *inside* that loop, triggering the BUG-1 scenario.
+    result = asyncio.run(_run_parse_from_async())
+    assert result.get("markdown_text") == "# markdown content", (
+        "BUG-1: parse_pdf raised RuntimeError when called from within a running event loop"
+    )
+
+
+# ===========================================================================
+# BUG-2 · parser.py — errors.append() before raise RuntimeError is dead code
+# ===========================================================================
+
+def test_bug2_errors_list_not_mutated_before_raise(tmp_path):
+    """The errors.append() before raise RuntimeError is dead code and must be removed.
+
+    Before fix: the local errors list is mutated then discarded (the list is
+                never returned because an exception is raised).
+    After fix:  the dead errors.append() line is removed; the caller's list
+                is not touched before the exception propagates.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    dummy_pdf = tmp_path / "TEST_2024_Q1.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 fake")
+
+    # Pass in a real list so we can verify it was NOT modified
+    original_errors: list = []
+
+    with patch("pipeline.nodes.parser._LLAMA_API_KEY", "fake-key"), \
+         patch("pipeline.nodes.parser._llamaparse", new_callable=AsyncMock,
+               side_effect=Exception("LlamaParse API connection refused")):
+        from pipeline.nodes.parser import parse_pdf
+        with pytest.raises(RuntimeError):
+            parse_pdf({"pdf_path": str(dummy_pdf), "errors": original_errors, "metadata": {}})
+
+    assert original_errors == [], (
+        "BUG-2: errors.append() before raise is dead code — the caller's list "
+        "should not be mutated before the RuntimeError propagates"
+    )
+
+
+# ===========================================================================
+# BUG-3 · merger.py — returns accumulated errors list, causing duplicates
+# ===========================================================================
+
+def test_bug3_merger_returns_only_new_errors():
+    """merge_and_validate must return only the errors it generates, not prior ones.
+
+    Before fix: returns {**state, "errors": errors} where errors contains all
+                prior accumulated errors — LangGraph's operator.add reducer then
+                adds them again, doubling every prior error.
+    After fix:  returns {"validated_payload": ..., "errors": new_errors} where
+                new_errors contains only errors generated by this node.
+    """
+    from pipeline.nodes.merger import merge_and_validate
+
+    pre_existing = ["parse_pdf: LlamaParse timed out", "route_content: empty content"]
+    state = {
+        "metadata": {
+            "ticker": "TEST",
+            "fiscal_year": 2024,
+            "report_period": "Q1",
+            "source_pdf": "test.pdf",
+        },
+        "quantitative_data": {},
+        "qualitative_data": {},
+        "errors": pre_existing,
+    }
+
+    result = merge_and_validate(state)
+
+    returned_errors = result.get("errors", [])
+    # The node added no new errors of its own, so it must return an empty list.
+    # Returning the full pre_existing list would double them via operator.add.
+    assert returned_errors == [], (
+        f"BUG-3: merge_and_validate returned pre-existing errors {returned_errors!r}. "
+        "With operator.add, LangGraph would double them. Node must return only new errors."
+    )
+
+
+def test_bug3_merger_returns_only_its_own_new_errors():
+    """When merger itself has a validation error, only that error is returned."""
+    from pipeline.nodes.merger import merge_and_validate
+
+    pre_existing = ["earlier_node: some prior error"]
+    state = {
+        "metadata": {"ticker": "TEST", "fiscal_year": 2024, "report_period": "Q1", "source_pdf": "t.pdf"},
+        # Pass invalid types to force a validation error inside merger
+        "quantitative_data": {"income_statement": {"revenue_bln": "not-a-float"}},
+        "qualitative_data": {},
+        "errors": pre_existing,
+    }
+
+    result = merge_and_validate(state)
+    returned_errors = result.get("errors", [])
+
+    # Pre-existing errors must NOT appear in the returned list
+    for pre_err in pre_existing:
+        assert pre_err not in returned_errors, (
+            f"BUG-3: pre-existing error {pre_err!r} was returned by merger — "
+            "this causes duplication via operator.add reducer"
+        )
+
+
+# ===========================================================================
+# BUG-4 · quantitative.py — normalize_financial_data never called
+# ===========================================================================
+
+def test_bug4_extract_quantitative_returns_normalized_floats():
+    """extract_quantitative must call normalize_financial_data before returning.
+
+    Before fix: returns raw FinancialValue dicts like
+                {"raw_value": "1,234,567", "unit_header": "RM '000"}
+                which causes ValidationError in the merger's Pydantic schemas.
+    After fix:  returns plain floats (e.g. 1.234567).
+    """
+    from unittest.mock import MagicMock, patch
+    from pipeline.nodes.quantitative import extract_quantitative
+
+    # _extract_statement returns a FinancialValue-style dict (as the LLM would)
+    financial_value_result = {
+        "revenue_bln": {"raw_value": "1,234,567", "unit_header": "RM '000"},
+        "gross_profit_bln": {"raw_value": "200,000", "unit_header": "RM '000"},
+        "operating_income_bln": None,
+        "net_income_bln": {"raw_value": "(50,000)", "unit_header": "RM '000"},
+        "eps": {"raw_value": "12.5", "unit_header": "sen"},
+        "gross_margin_pct": None,
+        "operating_margin_pct": None,
+        "net_margin_pct": None,
+    }
+
+    with patch("pipeline.nodes.quantitative._extract_statement",
+               return_value=financial_value_result), \
+         patch("pipeline.nodes.quantitative._build_llm"), \
+         patch("pipeline.nodes.quantitative._build_langfuse_callback", return_value=None):
+
+        state = {
+            "table_markdown": "# Report\n\nRevenue: 1,234,567",
+            "metadata": {"ticker": "TEST", "fiscal_year": 2024, "report_period": "Q1"},
+            "errors": [],
+        }
+        result = extract_quantitative(state)
+
+    income = result.get("quantitative_data", {}).get("income_statement", {})
+
+    assert not isinstance(income.get("revenue_bln"), dict), (
+        f"BUG-4: revenue_bln is still a FinancialValue dict {income.get('revenue_bln')!r}. "
+        "normalize_financial_data was not called."
+    )
+    assert isinstance(income.get("revenue_bln"), float), (
+        f"BUG-4: revenue_bln should be a float after normalization, got {type(income.get('revenue_bln'))}"
+    )
+    # 1,234,567 RM'000 = 1.234567 BLN
+    assert abs(income["revenue_bln"] - 1.234567) < 1e-5, (
+        f"BUG-4: normalization value mismatch: {income['revenue_bln']}"
+    )
+    # Negative value: (50,000) RM'000 = -0.05 BLN
+    assert isinstance(income.get("net_income_bln"), float)
+    assert income["net_income_bln"] < 0, "Parentheses should produce a negative float"
+
+
+def test_bug4_normalize_financial_data_unit():
+    """Verify normalize_financial_data itself works correctly (regression guard)."""
+    from pipeline.nodes.quantitative import normalize_financial_data
+
+    raw = {
+        "income_statement": {
+            "revenue_bln": {"raw_value": "5,000,000", "unit_header": "RM '000"},
+            "net_income_bln": {"raw_value": "(100,000)", "unit_header": "RM '000"},
+            "eps": {"raw_value": "25.5", "unit_header": "sen"},
+            "gross_profit_bln": None,
+        }
+    }
+    result = normalize_financial_data(raw)
+
+    assert isinstance(result["income_statement"]["revenue_bln"], float)
+    assert abs(result["income_statement"]["revenue_bln"] - 5.0) < 1e-6
+    assert result["income_statement"]["net_income_bln"] == pytest.approx(-0.1)
+    assert result["income_statement"]["gross_profit_bln"] is None
+
+
+# ===========================================================================
+# BUG-5 · router.py — returns accumulated errors list, causing duplicates
+# ===========================================================================
+
+def test_bug5_router_returns_only_new_errors_on_success():
+    """route_content must return only its own new errors, not the accumulated list.
+
+    Before fix: returns {**state, "errors": errors} where errors is a copy of
+                all prior accumulated errors — doubled by operator.add.
+    After fix:  returns {"table_markdown": ..., "errors": []} when no new error
+                occurs (empty list means nothing is added by operator.add).
+    """
+    from pipeline.nodes.router import route_content
+
+    pre_existing = ["parse_pdf: could not extract metadata"]
+    state = {
+        "markdown_text": "# Annual Report\n\nRevenue grew 10% YoY.",
+        "errors": pre_existing,
+    }
+
+    result = route_content(state)
+
+    assert result.get("errors") == [], (
+        f"BUG-5: route_content returned pre-existing errors {result.get('errors')!r}. "
+        "With operator.add, LangGraph would double them. Node must return only new errors."
+    )
+    assert result.get("table_markdown") == state["markdown_text"]
+    assert result.get("narrative_markdown") == state["markdown_text"]
+
+
+def test_bug5_router_returns_only_new_error_on_empty_markdown():
+    """route_content must not include pre-existing errors when adding its own error."""
+    from pipeline.nodes.router import route_content
+
+    pre_existing = ["parse_pdf: LlamaParse timeout"]
+    state = {
+        "markdown_text": "",   # triggers route_content's own error
+        "errors": pre_existing,
+    }
+
+    result = route_content(state)
+    returned_errors = result.get("errors", [])
+
+    # Pre-existing errors must NOT appear in the returned list
+    for pre_err in pre_existing:
+        assert pre_err not in returned_errors, (
+            f"BUG-5: pre-existing error {pre_err!r} must not be returned by route_content"
+        )
+    # route_content's own error should be present
+    assert any("empty markdown_text" in e for e in returned_errors), (
+        "route_content should still emit its own error about empty markdown"
+    )
+
+
+# ===========================================================================
+# BUG-6 (NOT PRESENT) · auth/dependencies.py — refresh token check already exists
+# ===========================================================================
+
+def test_bug6_not_present_is_access_token_check_exists():
+    """BUG-6 is not present: get_current_user already checks is_access_token().
+
+    This test confirms the fix is in place so it is not accidentally reverted.
+    """
+    from auth.jwt import is_access_token
+
+    assert is_access_token({"type": "access"}), "Access token should pass"
+    assert not is_access_token({"type": "refresh"}), "Refresh token must be rejected"
+    assert not is_access_token({}), "Missing type must be rejected"
+
+    # Also confirm dependencies.py imports and calls is_access_token
+    deps_path = os.path.join(_REPO_ROOT, "src", "backend", "auth", "dependencies.py")
+    with open(deps_path) as f:
+        source = f.read()
+    assert "is_access_token" in source, (
+        "BUG-6 guard: dependencies.py must call is_access_token() to reject refresh tokens"
+    )
+
+
+# ===========================================================================
+# BUG-7 (NOT PRESENT) · webhooks.py — stripe_customer_id lookup already used
+# ===========================================================================
+
+def test_bug7_not_present_webhook_uses_stripe_customer_id():
+    """BUG-7 is not present: webhook already looks up users by stripe_customer_id."""
+    webhooks_path = os.path.join(_REPO_ROOT, "src", "backend", "routers", "webhooks.py")
+    with open(webhooks_path) as f:
+        source = f.read()
+
+    assert "stripe_customer_id" in source, (
+        "BUG-7 guard: webhook must use stripe_customer_id for user lookup"
+    )
+    # Verify it does NOT fall back to email-based lookup in _upgrade_user_to_paid
+    assert "User.stripe_customer_id ==" in source, (
+        "BUG-7 guard: _upgrade_user_to_paid must filter by stripe_customer_id"
+    )
+
+
+# ===========================================================================
+# BUG-8 · loader.py — UPSERT overwrites good data with NULLs
+# ===========================================================================
+
+def test_bug8_upsert_uses_coalesce_to_preserve_existing_data():
+    """All UPSERT ON CONFLICT clauses must use COALESCE to avoid overwriting with NULL.
+
+    Before fix: ON CONFLICT DO UPDATE SET col = EXCLUDED.col
+                → NULL in a re-run wipes out the previously stored value.
+    After fix:  ON CONFLICT DO UPDATE SET col = COALESCE(EXCLUDED.col, table.col)
+                → existing non-NULL values are preserved.
+    """
+    loader_path = os.path.join(_REPO_ROOT, "src", "db", "loader.py")
+    with open(loader_path) as f:
+        source = f.read()
+
+    assert "COALESCE" in source, (
+        "BUG-8: loader.py must use COALESCE(EXCLUDED.col, col) in ON CONFLICT clauses "
+        "to preserve existing data when a re-run produces NULL values"
+    )
+
+
+def test_bug8_income_statement_upsert_coalesce_covers_all_columns():
+    """Each numeric column in _upsert_income_statement must be COALESCE-wrapped."""
+    loader_path = os.path.join(_REPO_ROOT, "src", "db", "loader.py")
+    with open(loader_path) as f:
+        source = f.read()
+
+    income_columns = [
+        "revenue_bln",
+        "gross_profit_bln",
+        "operating_income_bln",
+        "net_income_bln",
+        "eps",
+        "gross_margin_pct",
+        "operating_margin_pct",
+        "net_margin_pct",
+    ]
+    for col in income_columns:
+        assert f"COALESCE(EXCLUDED.{col}" in source, (
+            f"BUG-8: income_statements UPSERT missing COALESCE for column '{col}'"
+        )
+
+
+# ===========================================================================
+# BUG-9 · middleware.ts — JWT exp claim not checked
+# ===========================================================================
+
+def test_bug9_middleware_checks_exp_claim():
+    """decodeJwtPayload in middleware.ts must return null for expired tokens.
+
+    Before fix: expired tokens pass the isAuthenticated check, causing a
+                flash of protected content before the backend rejects the call.
+    After fix:  exp is checked; expired tokens return null from decodeJwtPayload.
+    """
+    middleware_path = os.path.join(_REPO_ROOT, "frontend", "src", "middleware.ts")
+    with open(middleware_path) as f:
+        source = f.read()
+
+    assert "payload.exp" in source or ".exp" in source, (
+        "BUG-9: middleware.ts must check the exp claim in decodeJwtPayload"
+    )
+    assert "Date.now()" in source, (
+        "BUG-9: middleware.ts must compare exp against Date.now() / 1000"
+    )
+
+
+def test_bug9_middleware_exp_check_returns_null_for_expired():
+    """The exp check must be inside decodeJwtPayload (before null return)."""
+    middleware_path = os.path.join(_REPO_ROOT, "frontend", "src", "middleware.ts")
+    with open(middleware_path) as f:
+        source = f.read()
+
+    # Find the decodeJwtPayload function body and confirm exp check is there
+    import re
+    fn_match = re.search(
+        r"function decodeJwtPayload\(.*?\{(.*?)\n\}",
+        source,
+        re.DOTALL,
+    )
+    assert fn_match, "decodeJwtPayload function not found in middleware.ts"
+    fn_body = fn_match.group(1)
+    assert "exp" in fn_body, (
+        "BUG-9: exp check must be inside decodeJwtPayload, not outside it"
+    )
+    assert "return null" in fn_body, (
+        "BUG-9: decodeJwtPayload must return null when token is expired"
+    )
+
+
+# ===========================================================================
+# BUG-10 · api.ts — apiKeyInfo uses POST instead of GET
+# ===========================================================================
+
+def test_bug10_api_key_info_uses_get_not_post():
+    """apiKeyInfo must use fetchJSON (GET) not mutateJSON (POST).
+
+    Before fix: both apiKeyInfo and rotateApiKey call
+                mutateJSON("/users/api-key", "POST") — they are identical.
+    After fix:  apiKeyInfo calls fetchJSON("/users/api-key") (GET), while
+                rotateApiKey still calls mutateJSON("/users/api-key", "POST").
+    """
+    api_path = os.path.join(_REPO_ROOT, "frontend", "src", "lib", "api.ts")
+    with open(api_path) as f:
+        source = f.read()
+
+    import re
+
+    # Extract the apiKeyInfo line(s)
+    api_key_info_match = re.search(
+        r"apiKeyInfo\s*:.*?(?=rotateApiKey|,\s*\})",
+        source,
+        re.DOTALL,
+    )
+    assert api_key_info_match, "apiKeyInfo not found in api.ts"
+    api_key_info_code = api_key_info_match.group(0)
+
+    assert "fetchJSON" in api_key_info_code, (
+        f"BUG-10: apiKeyInfo should use fetchJSON (GET). Found: {api_key_info_code!r}"
+    )
+    assert "mutateJSON" not in api_key_info_code, (
+        f"BUG-10: apiKeyInfo must NOT use mutateJSON (POST). Found: {api_key_info_code!r}"
+    )
+
+
+def test_bug10_rotate_api_key_still_uses_post():
+    """rotateApiKey must still use POST after the fix (should not be changed)."""
+    api_path = os.path.join(_REPO_ROOT, "frontend", "src", "lib", "api.ts")
+    with open(api_path) as f:
+        source = f.read()
+
+    import re
+
+    rotate_match = re.search(
+        r"rotateApiKey\s*:.*?(?=\},|\n  \})",
+        source,
+        re.DOTALL,
+    )
+    assert rotate_match, "rotateApiKey not found in api.ts"
+    rotate_code = rotate_match.group(0)
+
+    assert "mutateJSON" in rotate_code, (
+        f"BUG-10: rotateApiKey should still use mutateJSON (POST). Found: {rotate_code!r}"
+    )
