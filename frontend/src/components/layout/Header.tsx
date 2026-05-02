@@ -10,12 +10,13 @@
  * | Hydrating    | Muted loading skeleton (no flash of wrong state)      |
  * | Unauthenticated | "Sign In" + "Get Started" buttons                 |
  * | free         | Role badge, email, "Account", "Upgrade", "Log Out"    |
- * | paid         | Role badge, email, "Account", "Pro Analytics", "Log Out" |
+ * | paid         | Role badge, email, "Account", "Log Out"          |
  * | admin        | Role badge, email, "Account", "Admin", "Log Out"      |
  *
  * Nav links
  * ---------
- * PUBLIC_NAV_LINKS — shown to every visitor (authenticated or not).
+ * PUBLIC_NAV_LINKS — shown to every visitor (authenticated or not). The single
+ *                    company entry point is `/companies`.
  * AUTH_NAV_LINKS   — shown only to authenticated users.
  *
  * The ticker search bar is only visible to authenticated users.

@@ -1,8 +1,7 @@
 """
 FinSight Scheduler
-==================
-Runs the scraper automatically on a schedule so you never miss a new
-quarterly report release.
+Runs the full scraper + ETL ingestion job automatically so new quarterly
+reports are downloaded, parsed, extracted, and saved to the database.
 
 Default schedule
 ----------------
@@ -21,61 +20,26 @@ Dependencies
 ------------
     pip install schedule
 
-The scheduler calls main.py with --latest by default.  If you want a full
-backfill run every week, change `latest_only=True` to `latest_only=False`
-in the job() function below.
+The scheduler calls `jobs.weekly_ingestion.run_weekly_ingestion()` with
+latest_only=True by default.  If you want a full backfill run every week,
+change `latest_only=True` to `latest_only=False` in the job() function below.
 """
 
-import asyncio
+from __future__ import annotations
+
 import logging
-import time
-from datetime import datetime
 
-try:
-    import schedule
-except ImportError:
-    raise SystemExit(
-        "The 'schedule' package is required.\nRun: pip install schedule"
+logger = logging.getLogger(__name__)
+
+
+def main() -> None:
+    """No-op entrypoint kept to make archival intent explicit."""
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logger.info(
+        "scheduler.py is archived and intentionally disabled. "
+        "Use external trigger POST /run-pipeline instead."
     )
-
-# Re-use the main scraper entry-point
-from main import main as run_scraper
-
-logging.basicConfig(
-    filename="scheduler.log",
-    level=logging.INFO,
-    format="%(asctime)s [SCHEDULER] %(levelname)s: %(message)s",
-)
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-console.setFormatter(logging.Formatter("%(asctime)s [SCHEDULER] %(message)s"))
-logging.getLogger("").addHandler(console)
-
-
-def job(latest_only: bool = True):
-    """Trigger the scraper.  Set latest_only=False for a full backfill."""
-    logging.info(f"Scheduler triggered at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    try:
-        asyncio.run(run_scraper(latest_only=latest_only))
-        logging.info("Scraper run completed successfully.")
-    except Exception as e:
-        logging.error(f"Scraper run failed: {e}")
 
 
 if __name__ == "__main__":
-    logging.info("FinSight Scheduler started.")
-    logging.info("Schedule: every Monday at 09:00 AM + immediate startup check.")
-
-    # Run once on startup (latest only – quick check)
-    job(latest_only=True)
-
-    # Recurring: every Monday at 09:00 for a latest-quarter check
-    schedule.every().monday.at("09:00").do(job, latest_only=True)
-
-    # Optional: full backfill every Sunday night (catches any gaps)
-    # schedule.every().sunday.at("02:00").do(job, latest_only=False)
-
-    logging.info("Scheduler is running. Press Ctrl+C to stop.")
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+    main()

@@ -1,0 +1,19 @@
+name: Trigger Weekly Pipeline
+
+on:
+  schedule:
+    # Monday 01:00 UTC (09:00 MYT)
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    name: Call Render pipeline trigger endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backend pipeline
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "${{ secrets.RENDER_PIPELINE_TRIGGER_URL }}" \
+            -H "x-api-key: ${{ secrets.PIPELINE_TRIGGER_API_KEY }}" \
+            -H "Content-Type: application/json"

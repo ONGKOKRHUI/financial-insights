@@ -1,3 +1,234 @@
+"""Mock financial data for tests and optional local demo seeding.
+
+Production startup does not depend on these values unless
+`FINSIGHT_ENABLE_MOCK_SEED=true` is set. The real application data should come
+from the scraper + LLM extraction pipeline.
+"""
+
+from __future__ import annotations
+
+COMPANIES = {
+    "MAYBANK": {
+        "ticker": "MAYBANK",
+        "name": "Malayan Banking Berhad",
+        "sector": "Financials",
+        "industry": "Banking",
+        "description": "Malaysia's largest banking group by assets with regional operations across ASEAN.",
+        "market_cap_bln": 105.0,
+        "employees": 43000,
+        "founded": 1960,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.maybank.com",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "CIMB": {
+        "ticker": "CIMB",
+        "name": "CIMB Group Holdings Berhad",
+        "sector": "Financials",
+        "industry": "Banking",
+        "description": "ASEAN universal banking group offering consumer, wholesale, Islamic, and investment banking.",
+        "market_cap_bln": 68.0,
+        "employees": 33000,
+        "founded": 1974,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.cimb.com",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "TNB": {
+        "ticker": "TNB",
+        "name": "Tenaga Nasional Berhad",
+        "sector": "Utilities",
+        "industry": "Electric Utilities",
+        "description": "Malaysia's national electricity utility with generation, grid, and retail operations.",
+        "market_cap_bln": 82.0,
+        "employees": 35000,
+        "founded": 1949,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.tnb.com.my",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "PETRONAS": {
+        "ticker": "PETRONAS",
+        "name": "PETRONAS Chemicals Group Berhad",
+        "sector": "Materials",
+        "industry": "Chemicals",
+        "description": "Integrated chemicals producer within the PETRONAS group serving regional industrial markets.",
+        "market_cap_bln": 46.0,
+        "employees": 5600,
+        "founded": 1998,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.petronaschemicals.com",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "MAXIS": {
+        "ticker": "MAXIS",
+        "name": "Maxis Berhad",
+        "sector": "Communication Services",
+        "industry": "Telecommunications",
+        "description": "Mobile and fixed connectivity provider serving consumers, SMEs, and enterprises in Malaysia.",
+        "market_cap_bln": 30.0,
+        "employees": 3900,
+        "founded": 1995,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.maxis.com.my",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "TELEKOM": {
+        "ticker": "TELEKOM",
+        "name": "Telekom Malaysia Berhad",
+        "sector": "Communication Services",
+        "industry": "Telecommunications",
+        "description": "National fixed-line and broadband operator with enterprise and wholesale connectivity services.",
+        "market_cap_bln": 25.0,
+        "employees": 20000,
+        "founded": 1984,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.tm.com.my",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "GENTING": {
+        "ticker": "GENTING",
+        "name": "Genting Berhad",
+        "sector": "Consumer Discretionary",
+        "industry": "Leisure and Hospitality",
+        "description": "Diversified leisure, hospitality, plantations, property, and energy group.",
+        "market_cap_bln": 18.0,
+        "employees": 58000,
+        "founded": 1965,
+        "headquarters": "Kuala Lumpur, Malaysia",
+        "website": "https://www.genting.com",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+    "SUNWAY": {
+        "ticker": "SUNWAY",
+        "name": "Sunway Berhad",
+        "sector": "Real Estate",
+        "industry": "Property and Construction",
+        "description": "Conglomerate with property, construction, healthcare, education, and hospitality businesses.",
+        "market_cap_bln": 23.0,
+        "employees": 16000,
+        "founded": 1974,
+        "headquarters": "Selangor, Malaysia",
+        "website": "https://www.sunway.com.my",
+        "currency": "MYR",
+        "exchange": "Bursa Malaysia",
+    },
+}
+
+_BASE = {
+    "MAYBANK": (45.0, 9.3),
+    "CIMB": (22.0, 6.1),
+    "TNB": (53.0, 3.9),
+    "PETRONAS": (28.7, 3.6),
+    "MAXIS": (9.9, 1.3),
+    "TELEKOM": (12.1, 1.9),
+    "GENTING": (24.6, 0.9),
+    "SUNWAY": (6.1, 0.8),
+}
+
+
+def _income_rows(ticker: str) -> list[dict[str, float | int]]:
+    revenue_base, income_base = _BASE[ticker]
+    rows = []
+    for offset, year in enumerate(range(2020, 2025)):
+        revenue = round(revenue_base * (0.9 + offset * 0.04), 2)
+        net_income = round(income_base * (0.82 + offset * 0.045), 2)
+        gross_profit = round(revenue * 0.45, 2)
+        operating_income = round(net_income * 1.42, 2)
+        rows.append(
+            {
+                "fiscal_year": year,
+                "revenue_bln": revenue,
+                "gross_profit_bln": gross_profit,
+                "operating_income_bln": operating_income,
+                "net_income_bln": net_income,
+                "eps": round(max(net_income, 0.1) / 3.2, 2),
+                "gross_margin_pct": round(gross_profit / revenue * 100, 2),
+                "operating_margin_pct": round(operating_income / revenue * 100, 2),
+                "net_margin_pct": round(net_income / revenue * 100, 2),
+            }
+        )
+    return rows
+
+
+def _balance_rows(ticker: str) -> list[dict[str, float | int]]:
+    revenue_base, _ = _BASE[ticker]
+    rows = []
+    for offset, year in enumerate(range(2020, 2025)):
+        assets = round(revenue_base * (4.6 + offset * 0.18), 2)
+        liabilities = round(assets * 0.62, 2)
+        equity = round(assets - liabilities, 2)
+        rows.append(
+            {
+                "fiscal_year": year,
+                "total_assets_bln": assets,
+                "total_liabilities_bln": liabilities,
+                "total_equity_bln": equity,
+                "cash_and_equivalents_bln": round(assets * 0.08, 2),
+                "total_debt_bln": round(equity * 0.55, 2),
+            }
+        )
+    return rows
+
+
+def _cash_rows(ticker: str) -> list[dict[str, float | int]]:
+    rows = []
+    for income in _income_rows(ticker):
+        operating_cf = round(float(income["net_income_bln"]) * 1.25, 2)
+        capex = round(float(income["revenue_bln"]) * 0.06, 2)
+        rows.append(
+            {
+                "fiscal_year": income["fiscal_year"],
+                "operating_cash_flow_bln": operating_cf,
+                "capital_expenditure_bln": capex,
+                "free_cash_flow_bln": round(operating_cf - capex, 2),
+                "dividends_paid_bln": round(max(operating_cf * 0.35, 0), 2),
+            }
+        )
+    return rows
+
+
+INCOME_STATEMENTS = {ticker: _income_rows(ticker) for ticker in COMPANIES}
+BALANCE_SHEETS = {ticker: _balance_rows(ticker) for ticker in COMPANIES}
+CASH_FLOWS = {ticker: _cash_rows(ticker) for ticker in COMPANIES}
+
+KPI_SUMMARIES = {}
+for _ticker, _rows in INCOME_STATEMENTS.items():
+    _latest = _rows[-1]
+    KPI_SUMMARIES[_ticker] = {
+        "ticker": _ticker,
+        "fiscal_year": 2024,
+        "revenue_bln": _latest["revenue_bln"],
+        "net_income_bln": _latest["net_income_bln"],
+        "eps": _latest["eps"],
+        "pe_ratio": 13.5,
+        "roe_pct": 12.8,
+        "roace_pct": 10.4,
+        "debt_to_equity": 0.72,
+        "dividend_yield_pct": 4.1,
+    }
+
+QUALITATIVE_INSIGHTS = {
+    ticker: {
+        "fiscal_year": 2024,
+        "future_outlook": (
+            f"{data['name']} is focused on disciplined growth, operational efficiency, "
+            "and resilient cash generation in its core Malaysian markets."
+        ),
+        "key_strategic_events": [
+            "Continued investment in digital capabilities and operational resilience.",
+            "Maintained focus on shareholder returns and balance sheet discipline.",
+        ],
+    }
+    for ticker, data in COMPANIES.items()
+}
 """
 Mock financial data for 8 Malaysian Blue-Chip companies (KLSE).
 All monetary values in MYR billions unless noted otherwise.
@@ -617,3 +848,64 @@ QUALITATIVE_INSIGHTS: dict = {
 #         }
 #     ]
 # }
+
+# Final demo fixture used by tests and optional local seeding. This normalises
+# the mock universe to the same eight scraper/database tickers used by the app.
+COMPANIES = {
+    ticker: data
+    for ticker, data in {
+        "MAYBANK": COMPANIES["MAYBANK"],
+        "CIMB": COMPANIES["CIMB"],
+        "TNB": COMPANIES["TNB"],
+        "PETRONAS": {
+            **COMPANIES["PETRONAS"],
+            "name": "PETRONAS Chemicals Group Berhad",
+            "sector": "Materials",
+            "industry": "Chemicals",
+        },
+        "MAXIS": COMPANIES["MAXIS"],
+        "TELEKOM": {
+            **COMPANIES["TM"],
+            "ticker": "TELEKOM",
+            "name": "Telekom Malaysia Berhad",
+            "sector": "Communication Services",
+        },
+        "GENTING": COMPANIES["GENTING"],
+        "SUNWAY": COMPANIES["SUNWAY"],
+    }.items()
+}
+
+INCOME_STATEMENTS = {ticker: _income_rows(ticker) for ticker in COMPANIES}
+BALANCE_SHEETS = {ticker: _balance_rows(ticker) for ticker in COMPANIES}
+CASH_FLOWS = {ticker: _cash_rows(ticker) for ticker in COMPANIES}
+
+KPI_SUMMARIES = {}
+for _ticker, _rows in INCOME_STATEMENTS.items():
+    _latest = _rows[-1]
+    KPI_SUMMARIES[_ticker] = {
+        "ticker": _ticker,
+        "fiscal_year": 2024,
+        "revenue_bln": _latest["revenue_bln"],
+        "net_income_bln": _latest["net_income_bln"],
+        "eps": _latest["eps"],
+        "pe_ratio": 13.5,
+        "roe_pct": 12.8,
+        "roace_pct": 10.4,
+        "debt_to_equity": 0.72,
+        "dividend_yield_pct": 4.1,
+    }
+
+QUALITATIVE_INSIGHTS = {
+    ticker: {
+        "fiscal_year": 2024,
+        "future_outlook": (
+            f"{data['name']} is focused on disciplined growth, operational efficiency, "
+            "and resilient cash generation in its core Malaysian markets."
+        ),
+        "key_strategic_events": [
+            "Continued investment in digital capabilities and operational resilience.",
+            "Maintained focus on shareholder returns and balance sheet discipline.",
+        ],
+    }
+    for ticker, data in COMPANIES.items()
+}

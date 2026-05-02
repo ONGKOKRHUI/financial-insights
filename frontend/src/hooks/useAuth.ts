@@ -86,7 +86,7 @@ async function postLogout(): Promise<void> {
  * @returns TanStack Query result with the current {@link AuthUser} or null.
  */
 export function useCurrentUser() {
-  const { setUser, clearUser, setHydrated } = useAuthStore();
+  const { setUser, clearUser } = useAuthStore();
 
   return useQuery<AuthUser | null>({
     queryKey: authQueryKeys.currentUser(),
@@ -169,7 +169,8 @@ export function useLogout() {
     onSuccess: () => {
       clearUser();
       queryClient.removeQueries({ queryKey: authQueryKeys.currentUser() });
-      router.push("/auth/login");
+      router.replace("/auth/login");
+      router.refresh();
     },
   });
 }

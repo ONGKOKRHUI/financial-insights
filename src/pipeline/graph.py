@@ -17,7 +17,8 @@ import sys
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
+load_dotenv(override=True) # ensures .env is loaded and overrides any existing environment variables
 
 logger = logging.getLogger(__name__)
 

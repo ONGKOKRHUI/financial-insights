@@ -1,23 +1,33 @@
 """
-Idempotent seed: populates all tables from mock_data if they are empty.
-Called on application startup via seed_if_empty().
+Optional idempotent seed: populates all tables from mock_data if explicitly
+enabled and the database is empty.
 """
 import json
+import os
 from sqlalchemy.orm import Session
 from models import Company, KPISummary, IncomeStatement, BalanceSheet, CashFlow, QualitativeInsight
-from data.mock_data import (
-    COMPANIES,
-    KPI_SUMMARIES,
-    INCOME_STATEMENTS,
-    BALANCE_SHEETS,
-    CASH_FLOWS,
-    QUALITATIVE_INSIGHTS,
-)
+
+
+def _mock_seed_enabled() -> bool:
+    return os.getenv("FINSIGHT_ENABLE_MOCK_SEED", "false").lower() in {"1", "true", "yes"}
 
 
 def seed_if_empty(db: Session) -> None:
+    if not _mock_seed_enabled():
+        print("Mock seed disabled. Set FINSIGHT_ENABLE_MOCK_SEED=true to seed demo data.")
+        return
+
     if db.query(Company).first() is not None:
         return
+
+    from data.mock_data import (
+        BALANCE_SHEETS,
+        CASH_FLOWS,
+        COMPANIES,
+        INCOME_STATEMENTS,
+        KPI_SUMMARIES,
+        QUALITATIVE_INSIGHTS,
+    )
 
     print("Seeding database from mock data...")
 

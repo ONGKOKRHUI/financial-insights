@@ -110,7 +110,13 @@ export default async function CompanyPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/companies/${company.ticker}/advanced`}
+            className="rounded-lg border border-indigo-200 bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors"
+          >
+            Advanced analytics
+          </Link>
           <a
             href={company.website}
             target="_blank"

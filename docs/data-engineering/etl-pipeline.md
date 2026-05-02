@@ -1,8 +1,10 @@
 # ETL Pipeline
 
 !!! success "Phase 2 — Implemented"
-    The full automated ETL pipeline — PDF ingestion → AI-driven parsing → PostgreSQL UPSERT — is live in Phase 2.  
-    Orchestrated by **Apache Airflow** (LocalExecutor), powered by **LangGraph + Google Gemini 2.0 Flash**, and traced end-to-end with **Langfuse**.
+    The full automated ETL pipeline — scraper check → PDF ingestion → AI-driven parsing → PostgreSQL UPSERT — is live.  
+    Orchestrated by **Apache Airflow** (LocalExecutor), powered by **LangGraph + Google Gemini 
+    2.0 Flash**, and traced end-to-end with **Langfuse**.
+    It can run through the deployable weekly job in `src/jobs/weekly_ingestion.py` or through the Airflow DAG.
 
 ---
 
@@ -11,18 +13,17 @@
 The FinSight ETL pipeline converts raw quarterly/annual report PDFs downloaded by the Phase 1 scraper into structured financial data stored in PostgreSQL.
 
 ```
-Scraper (Phase 1)          ETL Pipeline (Phase 2)
-──────────────────         ──────────────────────────────────────────────────────
-Playwright → PDF           Airflow DAG
-  src/scraper/             ├── check_new_pdfs      — scan for unprocessed PDFs
-  data/raw/<TICKER>/       ├── trigger_parse_pipeline
-    *.pdf                  │     └── LangGraph state machine
-                           │           parse_pdf → route_content (pass-through)
-                           │             ├── extract_quantitative  (Gemini)
-                           │             └── extract_qualitative   (Gemini)
-                           │                   └── merge_and_validate
-                           │                         └── normalize_financial_data
-                           └── load_to_postgres   — UPSERT to finsight DB
+Weekly job / Airflow
+────────────────────────────────────────────────────────────────────────────────
+Playwright scraper latest check
+  src/scraper/data/raw/<TICKER>/*.pdf
+    └── scan unprocessed PDFs via pipeline_runs
+        └── LangGraph state machine
+            parse_pdf → route_content
+              ├── extract_quantitative  (Gemini)
+              └── extract_qualitative   (Gemini)
+                    └── merge_and_validate
+                        └── PostgreSQL UPSERT + status tracking
 ```
 
 ---
@@ -50,6 +51,36 @@ flowchart LR
 ---
 
 ## Orchestration
+
+### Weekly Ingestion Job — `src/jobs/weekly_ingestion.py`
+
+This is the simplest deployment entry point when you want one scheduled
+process to do everything every Monday:
+
+```bash
+PYTHONPATH=src python -m jobs.weekly_ingestion --latest-only
+```
+
+The job performs:
+
+1. `src/scraper/main.py` latest-quarter scrape for the configured companies.
+2. `db.loader.get_unprocessed_pdfs(FINSIGHT_RAW_DIR)` to find raw PDFs not
+   already marked `success`.
+3. `pipeline.graph.run_pipeline(pdf_path)` for LlamaParse/Gemini extraction.
+4. `db.loader.upsert_report(payload)` and `mark_processed(...)` for database
+   persistence and idempotent run tracking.
+
+Useful options:
+
+| Option | Purpose |
+|---|---|
+| `--skip-scrape` | Process PDFs already in the raw folder without running Playwright. |
+| `--dry-run` | List PDFs that would be processed without LLM or DB writes. |
+| `--limit N` | Process only the first N unprocessed PDFs for smoke testing. |
+| `--full-backfill` | Run scraper backfill mode instead of latest-only mode. |
+
+`src/scraper/scheduler.py` is archived/disabled and kept only for historical
+reference. Cloud runs are triggered externally via `POST /run-pipeline`.
 
 ### Airflow DAG — `dags/finsight_etl_dag.py`
 
@@ -147,7 +178,28 @@ CREATE TABLE pipeline_runs (
 
 ### Incremental Loading
 
-Only PDFs absent from `pipeline_runs WHERE status='success'` are processed each DAG run.
+Only PDFs absent from `pipeline_runs WHERE status='success'` are processed each job/DAG run.
+
+---
+
+## Ground-Truth Accuracy Validation
+
+Mock ground truth lives at `ground_truth/mock_ground_truth.json`. Replace the
+records in this file with manually verified financial values when the real
+ground-truth dataset is ready.
+
+Run the validator against the configured database:
+
+```bash
+PYTHONPATH=src python -m validation.validate_extraction_accuracy \
+  --ground-truth ground_truth/mock_ground_truth.json \
+  --output validation_report.json
+```
+
+The report includes total records, passed records, missing database values, and
+overall tolerance-based accuracy. Ground-truth records are field-level entries
+with `ticker`, `fiscal_year`, `statement`, `field`, `expected_value`, and
+`tolerance_abs`.
 
 ---
 
@@ -172,6 +224,40 @@ Airflow runs in a **separate** `docker-compose.airflow.yml` so it never interfer
 docker compose up -d                                 # main stack (postgres:5432, backend, frontend)
 docker compose -f docker-compose.airflow.yml up --build   # Airflow (postgres-airflow:5433, UI:8080)
 ```
+
+### Intended usage split
+
+- **Deployment (Render):** use external trigger path (`POST /run-pipeline` -> `src/jobs/weekly_ingestion.py`).
+- **Local development/testing:** use Airflow in Docker with `dags/finsight_etl_dag.py`.
+
+For production operations and validation steps, see:
+`docs/development/pipeline-trigger-runbook.md`.
+
+### Required `.env` keys for local Airflow ETL
+
+Minimum keys for **LangGraph + Gemini + LlamaParse + Langfuse**:
+
+| Key | Required | Example |
+|---|---|---|
+| `AIRFLOW_DATABASE_URL` | Recommended | `postgresql://postgres:postgres@postgres:5432/finsight` |
+| `DATABASE_URL` | Yes (fallback) | `postgresql://postgres:postgres@localhost:5432/finsight` |
+| `FINSIGHT_RAW_DIR` | Yes | `/app/src/scraper/data/raw` (container path is set by compose) |
+| `PIPELINE_ENGINE` | Yes | `langgraph` |
+| `GOOGLE_API_KEY` | Yes (`langgraph`) | `AIza...` |
+| `GEMINI_MODEL` | Optional | `gemini-2.5-flash` |
+| `LLAMA_CLOUD_API_KEY` | Optional but recommended | `llx-...` |
+| `LANGFUSE_PUBLIC_KEY` | Optional (enable tracing) | `pk-lf-...` |
+| `LANGFUSE_SECRET_KEY` | Optional (enable tracing) | `sk-lf-...` |
+| `LANGFUSE_HOST` | Optional | `https://cloud.langfuse.com` |
+| `AIRFLOW_FERNET_KEY` | Yes | `HnvohNQlq8zydPYxPVvA6x0f0l4CYwSqNMOYfTRtFjY=` |
+| `AIRFLOW_SECRET_KEY` | Yes | `finsight-airflow-dev-secret` |
+
+Additional keys only when `PIPELINE_ENGINE=dify`:
+
+| Key | Required (`dify`) | Example |
+|---|---|---|
+| `DIFY_API_URL` | Yes | `https://api.dify.ai/v1/workflows/run` |
+| `DIFY_API_KEY` | Yes | `app-...` |
 
 Airflow services:
 
@@ -231,4 +317,39 @@ python tests/test_pipeline.py --watch
 
 # 7. Start Airflow locally
 docker compose -f docker-compose.airflow.yml up --build
+
+# 8. Trigger Airflow DAG manually
+docker compose -f docker-compose.airflow.yml exec -T airflow-webserver \
+  airflow dags trigger finsight_etl
+
+# 9. Smoke-test DAG end-to-end (recommended)
+python scripts/test_airflow_pipeline_local.py --max-pdfs 1
 ```
+
+## Switching pipeline engines locally
+
+You can switch the extraction pipeline used by Airflow via `PIPELINE_ENGINE`:
+
+1. Set in `.env`:
+   - `PIPELINE_ENGINE=langgraph` (default)
+   - `PIPELINE_ENGINE=dify`
+2. Restart Airflow stack so containers pick up the new env:
+   ```bash
+   docker compose -f docker-compose.airflow.yml down
+   docker compose -f docker-compose.airflow.yml up -d --build
+   ```
+3. Run a test:
+   ```bash
+   python scripts/test_airflow_pipeline_local.py --pipeline-engine langgraph --max-pdfs 1
+   # or
+   python scripts/test_airflow_pipeline_local.py --pipeline-engine dify --max-pdfs 1
+   ```
+
+For direct DAG runs, set this env var for quick validation:
+
+```bash
+FINSIGHT_MAX_PDFS_PER_RUN=1
+```
+
+When `FINSIGHT_MAX_PDFS_PER_RUN` is greater than `0`, `check_new_pdfs` limits
+the number of files sent to downstream tasks in the same DAG run.

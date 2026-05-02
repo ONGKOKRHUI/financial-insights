@@ -3,41 +3,12 @@
 /**
  * Authenticated main hub — `/`.
  *
- * Entry point for all authenticated users after login.  Renders a
- * role-differentiated view of the platform:
- *
- * - **free**  — Company overview grid with analytics tiles locked behind
- *               an upgrade prompt.
- * - **paid**  — Full grid with deep-links to per-company pro analytics at
- *               `/dashboard/[ticker]`.
- * - **admin** — Same as paid, plus a prominent Admin Dashboard card.
- *
- * Auth hydration is handled by `SessionHydrator` in `providers.tsx`; this
- * page reads the already-hydrated store directly via `useAuthStore`.
+ * Company selection is intentionally centralised at `/companies`; this page is
+ * only a role-aware launchpad for account, billing, API, and admin actions.
  */
 
 import Link from "next/link";
 import { useAuthStore, type UserRole } from "@/stores/authStore";
-
-const COMPANIES = [
-  { ticker: "MAYBANK", name: "Malayan Banking", sector: "Financials" },
-  { ticker: "CIMB", name: "CIMB Group", sector: "Financials" },
-  { ticker: "TNB", name: "Tenaga Nasional", sector: "Utilities" },
-  { ticker: "PCHEM", name: "Petronas Chemicals", sector: "Materials" },
-  { ticker: "AXIATA", name: "Axiata Group", sector: "Communication" },
-  { ticker: "IHH", name: "IHH Healthcare", sector: "Health Care" },
-  { ticker: "PMETAL", name: "Press Metal Aluminium", sector: "Materials" },
-  { ticker: "TM", name: "Telekom Malaysia", sector: "Communication" },
-];
-
-/** Tailwind border-colour by sector for card accent stripes. */
-const SECTOR_COLORS: Record<string, string> = {
-  Financials: "border-blue-500",
-  Utilities: "border-yellow-500",
-  Materials: "border-emerald-500",
-  Communication: "border-purple-500",
-  "Health Care": "border-rose-500",
-};
 
 /** Badge colour by role. */
 const ROLE_BADGE: Record<UserRole, string> = {
@@ -57,71 +28,30 @@ const ROLE_LABEL: Record<UserRole, string> = {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/**
- * Company tile for paid / admin users.
- * Links directly to the per-company pro analytics dashboard.
- */
-function PaidCompanyCard({
-  ticker,
-  name,
-  sector,
+function HomeActionCard({
+  href,
+  title,
+  description,
+  accent = "border-indigo-500",
 }: {
-  ticker: string;
-  name: string;
-  sector: string;
+  href: string;
+  title: string;
+  description: string;
+  accent?: string;
 }) {
   return (
     <Link
-      href={`/dashboard/${ticker}`}
-      className={`group flex flex-col rounded-xl border-l-4 bg-slate-900 p-5 hover:bg-slate-800 transition-colors ${
-        SECTOR_COLORS[sector] ?? "border-slate-500"
-      }`}
+      href={href}
+      className={`group flex min-h-36 flex-col rounded-xl border-l-4 bg-slate-900 p-5 hover:bg-slate-800 transition-colors ${accent}`}
     >
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-        {sector}
+      <span className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
+        {title}
       </span>
-      <span className="mt-1 text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
-        {ticker}
-      </span>
-      <span className="mt-0.5 text-sm text-slate-400">{name}</span>
-      <span className="mt-4 text-xs text-indigo-400 group-hover:underline">
-        View analytics →
+      <span className="mt-2 text-sm leading-6 text-slate-400">{description}</span>
+      <span className="mt-auto pt-4 text-xs text-indigo-400 group-hover:underline">
+        Open →
       </span>
     </Link>
-  );
-}
-
-/**
- * Company tile for free users.
- * Navigates to the public company profile; analytics features are locked.
- */
-function FreeCompanyCard({
-  ticker,
-  name,
-  sector,
-}: {
-  ticker: string;
-  name: string;
-  sector: string;
-}) {
-  return (
-    <div
-      className={`relative flex flex-col rounded-xl border-l-4 bg-slate-900 p-5 ${
-        SECTOR_COLORS[sector] ?? "border-slate-500"
-      }`}
-    >
-      <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-        {sector}
-      </span>
-      <span className="mt-1 text-lg font-bold text-white">{ticker}</span>
-      <span className="mt-0.5 text-sm text-slate-400">{name}</span>
-      <div className="mt-4 flex items-center gap-1.5">
-        <span className="text-xs text-slate-600 line-through">View analytics</span>
-        <span className="rounded bg-amber-900/40 border border-amber-700/50 px-1.5 py-0.5 text-xs text-amber-400">
-          Pro
-        </span>
-      </div>
-    </div>
   );
 }
 
@@ -138,8 +68,8 @@ export default function HomePage() {
       <main className="min-h-screen bg-slate-950 px-6 py-10">
         <div className="max-w-5xl mx-auto space-y-6">
           <div className="h-10 w-64 rounded-xl bg-slate-800 animate-pulse" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-32 rounded-xl bg-slate-800 animate-pulse" />
             ))}
           </div>
@@ -169,10 +99,10 @@ export default function HomePage() {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-slate-400">
+            <p className="mt-1 max-w-2xl text-slate-400">
               {isPaidOrAdmin
-                ? "Select a company to view advanced analytics."
-                : "Browse company profiles — upgrade to Pro for advanced analytics."}
+                ? "Open a company profile to view free analytics, then continue into advanced analytics from that company page."
+                : "Browse company profiles and free analytics. Upgrade to Pro to unlock each company's advanced analytics page."}
             </p>
           </div>
 
@@ -187,14 +117,40 @@ export default function HomePage() {
           )}
         </header>
 
-        {/* ── Company grid ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {COMPANIES.map(({ ticker, name, sector }) =>
-            isPaidOrAdmin ? (
-              <PaidCompanyCard key={ticker} ticker={ticker} name={name} sector={sector} />
-            ) : (
-              <FreeCompanyCard key={ticker} ticker={ticker} name={name} sector={sector} />
-            )
+        {/* ── Role-aware launchpad ──────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <HomeActionCard
+            href="/companies"
+            title="Companies"
+            description="Browse the database-backed Malaysian blue-chip company directory and open a company profile."
+          />
+          <HomeActionCard
+            href="/account"
+            title="Account"
+            description="Manage your profile and subscription-linked API access."
+            accent="border-slate-500"
+          />
+          <HomeActionCard
+            href="/api-docs"
+            title="API Docs"
+            description="Review the available company and financial-data endpoints."
+            accent="border-emerald-500"
+          />
+          {!isPaidOrAdmin && (
+            <HomeActionCard
+              href="/upgrade"
+              title="Upgrade to Pro"
+              description="Unlock advanced company analytics and paid API features."
+              accent="border-amber-500"
+            />
+          )}
+          {role === "admin" && (
+            <HomeActionCard
+              href="/admin/dashboard"
+              title="Admin Dashboard"
+              description="Manage users, roles, and platform administration tasks."
+              accent="border-amber-500"
+            />
           )}
         </div>
 
@@ -215,16 +171,13 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ── Free-tier public company data notice ──────────────── */}
-        {role === "free" && (
-          <p className="mt-4 text-center text-xs text-slate-600">
-            Free accounts can browse company profiles at{" "}
-            <Link href="/companies" className="text-slate-500 hover:text-slate-400 underline">
-              /companies
-            </Link>
-            .
-          </p>
-        )}
+        <p className="mt-4 text-center text-xs text-slate-600">
+          Company selection is centralised at{" "}
+          <Link href="/companies" className="text-slate-500 hover:text-slate-400 underline">
+            /companies
+          </Link>
+          .
+        </p>
       </div>
     </main>
   );

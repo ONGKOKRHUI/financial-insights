@@ -149,6 +149,7 @@ nav:
       - development/index.md
       - Environment Setup: development/environment-setup.md
       - Running the Project: development/running-the-project.md
+      - Pipeline Trigger Runbook: development/pipeline-trigger-runbook.md
       - Contributing: development/contributing.md
 
 # ---------------------------------------------------------------------------

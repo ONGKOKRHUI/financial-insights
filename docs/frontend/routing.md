@@ -14,11 +14,12 @@ and role-based access across the application.
 | `/auth/register` | ✅ | — | Redirects to `/` if already authenticated |
 | `/api/**` | ✅ | — | BFF route handlers; auth enforced per-handler |
 | `/` | ❌ | `free` | Authenticated main hub; role-aware content |
-| `/companies` | ❌ | `free` | Company listing |
-| `/companies/[id]` | ❌ | `free` | Company profile + free-tier charts |
+| `/companies` | ✅ | — | Public company listing |
+| `/companies/[id]` | ✅ | — | Public company profile + free-tier charts |
+| `/companies/[id]/advanced` | ❌ | `paid` | Per-company advanced analytics |
 | `/account` | ❌ | `free` | Account settings + API key management |
 | `/upgrade` | ❌ | `free` | Pricing cards + Stripe Checkout redirect |
-| `/dashboard/[ticker]` | ❌ | `paid` | Per-company paid analytics |
+| `/dashboard/[ticker]` | ❌ | `paid` | Legacy redirect to `/companies/[ticker]/advanced` |
 | `/admin/dashboard` | ❌ | `admin` | User management table |
 
 ---
@@ -60,13 +61,15 @@ flowchart TD
     B -- Yes --> C{access_token cookie present\nand decodable?}
     C -- Yes --> D["Redirect → / (already logged in)"]
     C -- No --> E[Allow through to auth page]
-    B -- No --> F{access_token cookie present\nand decodable?}
+    B -- No --> P{Public company list/profile?}
+    P -- Yes --> K[Allow]
+    P -- No --> F{access_token cookie present\nand decodable?}
     F -- No --> G["Redirect → /auth/login?redirect=<path>"]
     F -- Yes --> H{Path starts with /admin?}
     H -- Yes --> I{role == admin?}
     I -- No --> J["Redirect → /"]
     I -- Yes --> K[Allow]
-    H -- No --> L{Path starts with /dashboard?}
+    H -- No --> L{Advanced company or legacy dashboard?}
     L -- Yes --> M{"role == paid\nor admin?"}
     M -- No --> N["Redirect → /upgrade"]
     M -- Yes --> K

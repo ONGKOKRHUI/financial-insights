@@ -2,7 +2,7 @@
 
 !!! success "Phase 1 — Implemented"
     Automated PDF download scripts for all eight target Malaysian Blue-Chip companies are implemented in Phase 1.  
-    Powered by **Playwright** with anti-bot stealth patches, idempotent disk-based deduplication, and a `schedule`-based weekly scheduler.
+    Powered by **Playwright** with anti-bot stealth patches, idempotent disk-based deduplication, and a `schedule`-based weekly ingestion scheduler.
 
 ---
 
@@ -10,7 +10,7 @@
 
 The FinSight scraper monitors each company's investor-relations (IR) web page, locates quarterly financial statement PDFs, and downloads them to a structured local directory tree. The scraper is fully idempotent — if a PDF already exists on disk it is silently skipped, making re-runs and backfills safe.
 
-The downloaded PDFs feed directly into the Phase 2 ETL pipeline, which watches the same directory for unprocessed files.
+The downloaded PDFs feed directly into the ETL pipeline through `src/jobs/weekly_ingestion.py`, which scans the same directory for unprocessed files and loads extracted values into PostgreSQL.
 
 ---
 
@@ -127,13 +127,13 @@ The base directory is configurable via `FINSIGHT_RAW_DIR` in `.env` (default: `s
 
 ### Standalone Scheduler (`src/scraper/scheduler.py`)
 
-A lightweight `schedule`-based scheduler runs the scraper automatically without requiring Airflow:
+A lightweight `schedule`-based scheduler runs the complete scraper + ETL job automatically without requiring Airflow:
 
 ```python
 # Runs once on startup (quick latest-quarter check)
 job(latest_only=True)
 
-# Every Monday at 09:00 AM KL time — check for the latest released quarter
+# Every Monday at 09:00 AM KL time — scrape latest reports and process them
 schedule.every().monday.at("09:00").do(job, latest_only=True)
 
 # Optional: full backfill every Sunday at 02:00 (catches any gaps)
@@ -155,6 +155,13 @@ nohup python scheduler.py > scheduler_output.log 2>&1 &
 | **Full backfill** (default) | `python main.py` | Iterates every `(year, quarter)` in each company's configured range; skips files already on disk |
 | **Latest-only** | `python main.py --latest` | Checks only the most recently completed quarter (conservative 45-day lag from quarter-end) |
 
+The deployable ingestion command wraps the scraper and downstream ETL stages:
+
+```bash
+PYTHONPATH=src python -m jobs.weekly_ingestion --latest-only
+PYTHONPATH=src python -m jobs.weekly_ingestion --skip-scrape --dry-run
+```
+
 The `current_quarter()` helper computes the latest safely-released quarter:
 
 ```python
@@ -168,9 +175,9 @@ def current_quarter() -> tuple[int, str]:
 
 ### Airflow Integration
 
-The Phase 2 Airflow DAG (`dags/finsight_etl_dag.py`) does not trigger the scraper directly. Instead, it polls `FINSIGHT_RAW_DIR` for new PDFs via `db.loader.get_unprocessed_pdfs()` and processes whatever the scraper has already written.
+The Airflow DAG (`dags/finsight_etl_dag.py`) remains available for deployments that prefer Airflow. It polls `FINSIGHT_RAW_DIR` for new PDFs via `db.loader.get_unprocessed_pdfs()` and processes whatever the scraper or weekly ingestion job has already written.
 
-The recommended production deployment therefore runs the scraper scheduler and the Airflow stack side-by-side:
+For the simplified deployment, run only the scheduler/weekly job. For Airflow-based deployments, run the scraper stage and Airflow stack side-by-side:
 
 ```
 scraper scheduler     →  src/scraper/data/raw/  ←  Airflow ETL DAG

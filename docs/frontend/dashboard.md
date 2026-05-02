@@ -1,9 +1,9 @@
 # Dashboard & Pages
 
 !!! success "Phase 4 Live"
-    The entire application is now gated behind authentication.  The root `/`
-    is the authenticated main hub for all users.  The paid analytics dashboard
-    lives at `/dashboard/[ticker]`.
+    `/companies` is the single company entry point for every user. Company
+    profiles and free visualisations are public, while advanced analytics live
+    at `/companies/[ticker]/advanced` and require `paid` or `admin`.
 
 ---
 
@@ -11,45 +11,38 @@
 
 | Page / Feature | Unauthenticated | Free | Paid | Admin |
 |---|:---:|:---:|:---:|:---:|
-| Main hub (`/`) | ❌ → login | ✅ | ✅ | ✅ |
-| Company profiles (`/companies/**`) | ❌ → login | ✅ | ✅ | ✅ |
-| Free-tier charts (Revenue, Margin, Bar) | ❌ → login | ✅ | ✅ | ✅ |
-| KPI cards | ❌ → login | ✅ | ✅ | ✅ |
+| Main hub (`/`) | ❌ → `/companies` | ✅ | ✅ | ✅ |
+| Company directory (`/companies`) | ✅ | ✅ | ✅ | ✅ |
+| Company profiles (`/companies/[ticker]`) | ✅ | ✅ | ✅ | ✅ |
+| Free-tier charts (Revenue, Margin, Bar) | ✅ | ✅ | ✅ | ✅ |
+| KPI cards | ✅ | ✅ | ✅ | ✅ |
 | Account settings (`/account`) | ❌ → login | ✅ | ✅ | ✅ |
 | Per-company paid analytics (`/dashboard/[ticker]`) | ❌ → login | ❌ → upgrade | ✅ | ✅ |
+| Per-company advanced analytics (`/companies/[ticker]/advanced`) | ❌ → login | ❌ → upgrade | ✅ | ✅ |
 | Paid charts (Sentiment, Radar, Waterfall) | ❌ → login | ❌ → upgrade | ✅ | ✅ |
 | Admin dashboard (`/admin/dashboard`) | ❌ → login | ❌ → / | ❌ → / | ✅ |
 
 !!! note "Global gate"
-    All routes (except `/auth/**` and `/api/**`) are protected by the Edge
-    Middleware.  Unauthenticated requests to any page redirect to
-    `/auth/login?redirect=<path>` before the page is rendered.
+    `/companies` and `/companies/[ticker]` are public. The Edge Middleware
+    protects authenticated routes and gates advanced analytics before the page
+    is rendered.
 
 ---
 
 ## Main Hub (`/`)
 
-The root page is the authenticated entry point for all users after login.
-It renders different content depending on the user's role.
-
-### Free role view
-
-- Company grid (8 tiles) — tiles navigate to the public company profile.
-- Analytics links on each tile are locked with a "Pro" badge.
-- Upgrade CTA section below the grid with a link to `/upgrade`.
-
-### Paid / Admin view
-
-- Same 8-tile company grid.
-- Each tile is a deep-link to `/dashboard/[ticker]` (pro analytics).
-- Admin users also see an "Admin Dashboard →" quick-link button in the page header.
+The root page is the authenticated entry point after login. It no longer
+contains a separate company grid; instead, it links users to the central
+`/companies` directory plus account, API docs, upgrade, and admin actions
+based on role.
 
 ---
 
-## Per-Company Analytics (`/dashboard/[ticker]`)
+## Per-Company Advanced Analytics (`/companies/[ticker]/advanced`)
 
 Three paid-tier visualisations gated to `paid` and `admin` roles.
 `free` users who navigate here directly are redirected to `/upgrade`.
+Legacy `/dashboard/[ticker]` URLs redirect to the new route.
 
 ---
 
@@ -109,7 +102,8 @@ Three paid-tier visualisations gated to `paid` and `admin` roles.
 
 ## Company Profile (`/companies/[id]`)
 
-Accessible to all authenticated users (free, paid, admin).
+Accessible to every visitor. The advanced analytics button is visible on the
+profile, but only `paid` and `admin` users can reach the destination page.
 
 - Breadcrumb navigation.
 - Company header with sector, industry, exchange, and currency.
@@ -117,6 +111,7 @@ Accessible to all authenticated users (free, paid, admin).
 - Financial statements table (`FinancialsTable`) — 5-year income statement.
 - **Free-tier charts** (Revenue Trend, Income Bar, Margin Chart).
 - 8 KPI cards in a responsive grid.
+- Advanced analytics CTA linking to `/companies/[ticker]/advanced`.
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://finsight-api.onrender.com";
 
@@ -171,7 +171,7 @@ function CodeBlock({ code, language = "bash" }: { code: string; language?: strin
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group" data-language={language}>
       <pre className="overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs text-slate-300 leading-relaxed">
         <code>{code}</code>
       </pre>
@@ -228,8 +228,6 @@ export default function ApiDocsPage() {
   const [tryResponse, setTryResponse] = useState<string | null>(null);
   const [tryLoading, setTryLoading] = useState(false);
   const [tryError, setTryError] = useState<string | null>(null);
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
-
   // Scroll spy
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -350,7 +348,7 @@ export default function ApiDocsPage() {
           </p>
           <CodeBlock code={`curl "${BASE_URL}/companies"`} />
           <p className="mt-4 text-slate-500 text-sm">
-            You'll receive a JSON array of all 8 companies. To go deeper, pass a ticker
+            You&apos;ll receive a JSON array of all 8 companies. To go deeper, pass a ticker
             to any of the endpoints below.
           </p>
         </section>

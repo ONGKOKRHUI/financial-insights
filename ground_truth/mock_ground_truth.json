@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "description": "Mock ground-truth values for extraction accuracy validation. Replace these records with manually verified values from source financial reports.",
+  "unit": "MYR billions unless field-specific",
+  "records": [
+    { "ticker": "MAYBANK", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 47.7, "tolerance_abs": 0.05 },
+    { "ticker": "MAYBANK", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 9.3, "tolerance_abs": 0.05 },
+    { "ticker": "MAYBANK", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "roe_pct", "expected_value": 12.8, "tolerance_abs": 0.1 },
+    { "ticker": "MAYBANK", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "free_cash_flow_bln", "expected_value": 8.76, "tolerance_abs": 0.05 },
+
+    { "ticker": "CIMB", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 23.32, "tolerance_abs": 0.05 },
+    { "ticker": "CIMB", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 6.1, "tolerance_abs": 0.05 },
+    { "ticker": "CIMB", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "roe_pct", "expected_value": 12.8, "tolerance_abs": 0.1 },
+    { "ticker": "CIMB", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "free_cash_flow_bln", "expected_value": 6.22, "tolerance_abs": 0.05 },
+
+    { "ticker": "TNB", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 56.18, "tolerance_abs": 0.05 },
+    { "ticker": "TNB", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 3.9, "tolerance_abs": 0.05 },
+    { "ticker": "TNB", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "debt_to_equity", "expected_value": 0.72, "tolerance_abs": 0.02 },
+    { "ticker": "TNB", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "free_cash_flow_bln", "expected_value": 1.5, "tolerance_abs": 0.05 },
+
+    { "ticker": "PETRONAS", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 30.42, "tolerance_abs": 0.05 },
+    { "ticker": "PETRONAS", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 3.6, "tolerance_abs": 0.05 },
+    { "ticker": "PETRONAS", "fiscal_year": 2024, "report_period": "FY", "statement": "balance_sheet", "field": "total_assets_bln", "expected_value": 152.68, "tolerance_abs": 0.1 },
+    { "ticker": "PETRONAS", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "dividend_yield_pct", "expected_value": 4.1, "tolerance_abs": 0.1 },
+
+    { "ticker": "MAXIS", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 10.49, "tolerance_abs": 0.05 },
+    { "ticker": "MAXIS", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 1.3, "tolerance_abs": 0.05 },
+    { "ticker": "MAXIS", "fiscal_year": 2024, "report_period": "FY", "statement": "balance_sheet", "field": "total_debt_bln", "expected_value": 11.01, "tolerance_abs": 0.1 },
+    { "ticker": "MAXIS", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "operating_cash_flow_bln", "expected_value": 1.62, "tolerance_abs": 0.05 },
+
+    { "ticker": "TELEKOM", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 12.83, "tolerance_abs": 0.05 },
+    { "ticker": "TELEKOM", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 1.9, "tolerance_abs": 0.05 },
+    { "ticker": "TELEKOM", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "eps", "expected_value": 0.59, "tolerance_abs": 0.02 },
+    { "ticker": "TELEKOM", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "free_cash_flow_bln", "expected_value": 1.6, "tolerance_abs": 0.05 },
+
+    { "ticker": "GENTING", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 26.08, "tolerance_abs": 0.05 },
+    { "ticker": "GENTING", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 0.9, "tolerance_abs": 0.05 },
+    { "ticker": "GENTING", "fiscal_year": 2024, "report_period": "FY", "statement": "balance_sheet", "field": "cash_and_equivalents_bln", "expected_value": 10.47, "tolerance_abs": 0.1 },
+    { "ticker": "GENTING", "fiscal_year": 2024, "report_period": "FY", "statement": "kpi_summary", "field": "pe_ratio", "expected_value": 13.5, "tolerance_abs": 0.1 },
+
+    { "ticker": "SUNWAY", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "revenue_bln", "expected_value": 6.47, "tolerance_abs": 0.05 },
+    { "ticker": "SUNWAY", "fiscal_year": 2024, "report_period": "FY", "statement": "income_statement", "field": "net_income_bln", "expected_value": 0.8, "tolerance_abs": 0.05 },
+    { "ticker": "SUNWAY", "fiscal_year": 2024, "report_period": "FY", "statement": "balance_sheet", "field": "total_equity_bln", "expected_value": 12.33, "tolerance_abs": 0.1 },
+    { "ticker": "SUNWAY", "fiscal_year": 2024, "report_period": "FY", "statement": "cash_flow", "field": "free_cash_flow_bln", "expected_value": 0.61, "tolerance_abs": 0.05 }
+  ]
+}

@@ -48,3 +48,14 @@ The backend seeds the database automatically on first startup (reads from `src/b
 ### GitHub Actions workflow fixes
 - `deploy-backend.yml` — paths corrected to `src/backend/**`; Python validation now runs from correct directory
 - `deploy-frontend.yml` — type-check step now uses `working-directory: ./frontend`
+
+### How to run locally
+- cd src/backend
+- Run `uvicorn main:app --reload --port 8000`
+- in a new terminal
+- cd frontend
+- Run `npm run dev`
+OR
+- docker-compose up 
+- docker-compose airflow ... up
+- (follow the docs documentation page running instructions)

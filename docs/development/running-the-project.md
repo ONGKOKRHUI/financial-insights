@@ -1,116 +1,129 @@
 # Running the Project
 
-!!! success "Current MVP"
-    All commands below work against the current MVP stack.
+## Local modes
+
+Use one of these two local execution modes:
+
+1. **App stack mode (no Airflow):**
+   - `docker compose up -d` for backend/frontend/postgres only
+   - Run ingestion manually when needed via `src/jobs/weekly_ingestion.py`
+2. **Airflow mode (Docker):**
+   - Uses `docker-compose.airflow.yml` + `dags/finsight_etl_dag.py`
+   - Intended for local orchestration testing and DAG debugging.
+
+Cloud deployment does **not** use internal Python scheduling.  
+For production trigger operations, see `docs/development/pipeline-trigger-runbook.md`.
 
 ---
 
-## Start All Services
+## Start core app stack
 
 ```bash
 docker compose up -d
 ```
 
-This starts: PostgreSQL, Redis, Airflow (or Prefect), Elasticsearch.
+This starts:
+- `postgres` (finsight DB) on `localhost:5432`
+- `backend` on `localhost:8000`
+- `frontend` on `localhost:3000`
 
 ---
 
-## Run the Backend
+## Weekly ingestion path (manual local run)
+
+Run one full weekly ingestion pass manually:
 
 ```bash
-cd backend
-uv run fastapi dev app/main.py --port 8000
+PYTHONPATH=src python -m jobs.weekly_ingestion --latest-only
 ```
 
-The API will be available at:
+Useful flags:
 
-- **API:** `http://localhost:8000`
-- **Swagger UI:** `http://localhost:8000/docs`
-- **ReDoc:** `http://localhost:8000/redoc`
+```bash
+PYTHONPATH=src python -m jobs.weekly_ingestion --skip-scrape --dry-run
+PYTHONPATH=src python -m jobs.weekly_ingestion --full-backfill --limit 5
+```
 
 ---
 
-## Run the Frontend
+## Airflow local mode (Docker)
+
+1. Ensure `.env` is configured (see `docs/data-engineering/etl-pipeline.md` for required keys).
+   - For Docker Airflow, set `AIRFLOW_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/finsight`.
+2. Start Airflow stack:
 
 ```bash
+docker compose -f docker-compose.airflow.yml up -d --build
+```
+
+3. Open Airflow UI: `http://localhost:8080` (`admin` / `admin`).
+4. Trigger DAG:
+
+```bash
+docker compose -f docker-compose.airflow.yml exec -T airflow-webserver \
+  airflow dags trigger finsight_etl
+```
+
+5. Smoke-test DAG end-to-end:
+
+```bash
+python scripts/test_airflow_pipeline_local.py
+```
+
+Fast local check (recommended default):
+
+```bash
+# Process only 1 unprocessed PDF
+python scripts/test_airflow_pipeline_local.py --max-pdfs 1
+
+# Process up to 3 PDFs
+python scripts/test_airflow_pipeline_local.py --max-pdfs 3
+```
+
+---
+
+## Switch pipelines locally (LangGraph vs Dify)
+
+Set `PIPELINE_ENGINE` in `.env`:
+
+- `PIPELINE_ENGINE=langgraph` (default)
+- `PIPELINE_ENGINE=dify`
+
+Then restart Airflow containers:
+
+```bash
+docker compose -f docker-compose.airflow.yml down
+docker compose -f docker-compose.airflow.yml up -d --build
+```
+
+Run test with explicit override if needed:
+
+```bash
+python scripts/test_airflow_pipeline_local.py --pipeline-engine langgraph
+python scripts/test_airflow_pipeline_local.py --pipeline-engine dify
+```
+
+---
+
+## Validation check
+
+```bash
+PYTHONPATH=src python -m validation.validate_extraction_accuracy \
+  --ground-truth ground_truth/mock_ground_truth.json \
+  --output validation_report.json
+```
+
+---
+
+## Build and lint
+
+```bash
+# Frontend
 cd frontend
-npm run dev
-```
+npm run lint
+npm run build
 
-The dashboard will be available at `http://localhost:3000`.
-
----
-
-## Run the Scraper (Manual Trigger)
-
-```bash
-cd pipeline
-uv run python scraper/run.py --company maybank --period Q3-2025
-```
-
----
-
-## Run the ETL Pipeline
-
-```bash
-# Trigger a full ETL run for a specific filing
-uv run python etl/run.py --filing-id 42
-
-# Or trigger via Airflow
-airflow dags trigger finsight_etl_pipeline
-```
-
----
-
-## Database Migrations
-
-```bash
-cd backend
-
-# Apply all pending migrations
-uv run alembic upgrade head
-
-# Create a new migration
-uv run alembic revision --autogenerate -m "add_users_table"
-
-# Roll back one migration
-uv run alembic downgrade -1
-```
-
----
-
-## Running Tests
-
-=== "Backend"
-    ```bash
-    cd backend
-    uv run pytest tests/ -v
-    ```
-
-=== "Frontend"
-    ```bash
-    cd frontend
-    npm run test
-    npm run test:e2e
-    ```
-
-=== "Pipeline"
-    ```bash
-    cd pipeline
-    uv run pytest tests/ -v
-    ```
-
----
-
-## Building the Documentation
-
-```bash
-# Install MkDocs dependencies
-pip install mkdocs-material mkdocs-minify-plugin
-
-# Serve locally with live reload
-mkdocs serve
-
-# Build static site
-mkdocs build
+# Backend/Python tests from repo root
+cd ..
+python -m pytest tests/test_validation_accuracy.py -q
 ```

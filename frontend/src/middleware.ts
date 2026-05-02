@@ -18,7 +18,8 @@
  * |------------------|--------------------------------------------------|
  * | ANY              | Unauthenticated → redirect to /auth/login        |
  * | /auth/**         | Authenticated → redirect to / (already logged in)|
- * | /dashboard/**    | Requires paid OR admin role                      |
+ * | /companies/[ticker]/advanced | Requires paid OR admin role             |
+ * | /dashboard/**    | Legacy paid analytics URLs; requires paid/admin |
  * | /account/**      | Requires any authenticated role                  |
  * | /admin/**        | Requires admin role only                         |
  *
@@ -58,11 +59,22 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 /**
  * Public routes that do not require authentication.
- * The `/companies` path is intentionally public — it displays company data
- * that can be fetched without credentials, and is linked to from the home
- * page for free-tier users.
+ * The `/companies` list and per-company profile pages are intentionally
+ * public. Advanced analytics under `/companies/[ticker]/advanced` are gated
+ * separately below.
  */
 const PUBLIC_PATHS = ["/companies"];
+
+function isPublicCompanyPath(pathname: string): boolean {
+  if (pathname === "/companies") return true;
+  const parts = pathname.split("/").filter(Boolean);
+  return parts.length === 2 && parts[0] === "companies";
+}
+
+function isAdvancedCompanyPath(pathname: string): boolean {
+  const parts = pathname.split("/").filter(Boolean);
+  return parts.length >= 3 && parts[0] === "companies" && parts[2] === "advanced";
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -90,8 +102,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public routes — no authentication required.
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+  // Public company directory/profile routes — no authentication required.
+  if (PUBLIC_PATHS.includes(pathname) || isPublicCompanyPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -119,8 +131,8 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // /dashboard/** — requires paid or admin role.
-  if (pathname.startsWith("/dashboard")) {
+  // Advanced analytics — requires paid or admin role.
+  if (isAdvancedCompanyPath(pathname) || pathname.startsWith("/dashboard")) {
     if (role !== "paid" && role !== "admin") {
       const url = req.nextUrl.clone();
       url.pathname = "/upgrade";

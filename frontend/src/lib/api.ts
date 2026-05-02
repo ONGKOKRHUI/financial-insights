@@ -81,7 +81,10 @@ export const api = {
     /** List all covered companies. */
     list: () => fetchJSON<CompanySummary[]>("/companies"),
     /** Get full company profile by ticker. */
-    get: (ticker: string) => fetchJSON<CompanyDetail>(`/companies/${ticker}`),
+    get: async (ticker: string) => {
+      const data = await fetchJSON<{ company: CompanyDetail }>(`/companies/${ticker}`);
+      return data.company;
+    },
     /** Get latest KPI summary by ticker. */
     summary: (ticker: string) => fetchJSON<KPISummary>(`/companies/${ticker}/summary`),
   },

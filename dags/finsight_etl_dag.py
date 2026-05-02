@@ -1,6 +1,11 @@
 """Airflow DAG: finsight_etl
 
-Orchestrates the daily PDF ingestion pipeline for FinSight.
+Local orchestration pipeline for FinSight ETL.
+
+Purpose
+-------
+- Intended for local Docker/Airflow development and DAG testing.
+- Deployment path uses weekly scheduler -> jobs.weekly_ingestion by default.
 
 Task graph:
     check_new_pdfs >> trigger_parse_pipeline >> load_to_postgres
@@ -36,6 +41,10 @@ RAW_DIR = os.getenv(
     os.path.join(_REPO_ROOT, "src", "scraper", "data", "raw"),
 )
 
+# Optional cap for quick local validation runs.
+# Example: FINSIGHT_MAX_PDFS_PER_RUN=1
+MAX_PDFS_PER_RUN = int(os.getenv("FINSIGHT_MAX_PDFS_PER_RUN", "0"))
+
 # ── Default args ───────────────────────────────────────────────────────────────
 
 DEFAULT_ARGS = {
@@ -58,6 +67,12 @@ def check_new_pdfs(**context) -> None:
     from db.loader import get_unprocessed_pdfs
 
     unprocessed = get_unprocessed_pdfs(RAW_DIR)
+    if MAX_PDFS_PER_RUN > 0:
+        unprocessed = unprocessed[:MAX_PDFS_PER_RUN]
+        logger.info(
+            "check_new_pdfs: limiting to %d PDF(s) for this run",
+            MAX_PDFS_PER_RUN,
+        )
     logger.info("check_new_pdfs: found %d unprocessed PDFs", len(unprocessed))
     context["ti"].xcom_push(key="unprocessed_pdfs", value=unprocessed)
 

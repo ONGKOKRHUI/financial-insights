@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import SessionLocal, engine
 from models import Base
-from routers import admin, companies, financials, jarvis, search
+from routers import admin, companies, financials, jarvis, pipeline_trigger, search
 from routers import auth as auth_router
 from routers import users as users_router
 from routers import webhooks
@@ -71,6 +71,13 @@ TAGS_METADATA = [
     {
         "name": "webhooks",
         "description": "Stripe webhook receiver — not for direct client use.",
+    },
+    {
+        "name": "pipeline",
+        "description": (
+            "Externally triggered weekly ingestion endpoint for cloud deployment. "
+            "Protected by x-api-key and designed for GitHub Actions cron calls."
+        ),
     },
 ]
 
@@ -127,6 +134,7 @@ app.include_router(companies.router)
 app.include_router(financials.router)
 app.include_router(search.router)
 app.include_router(jarvis.router)
+app.include_router(pipeline_trigger.router)
 
 
 @app.get("/", tags=["health"])
