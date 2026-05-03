@@ -15,7 +15,10 @@ from fastapi.testclient import TestClient
 def test_health(client: TestClient):
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json() == {"status": "ok"}
+    body = res.json()
+    assert body["status"] == "ok"
+    # Phase 5: /health now includes ES diagnostics; key must be present
+    assert "elasticsearch" in body
 
 
 # ---------------------------------------------------------------------------

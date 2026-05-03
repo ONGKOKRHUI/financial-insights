@@ -24,7 +24,11 @@ pytest==8.3.2
 pytest-asyncio==0.24.0
 google-generativeai>=0.8.0
 edge-tts>=6.1.12
-silero-vad>=5.1
 langchain-google-genai>=2.0.0
 langchain-core>=0.3.0
 langgraph>=0.2.0
+
+# Phase 5: Elasticsearch RAG
+# Pin 8.x: elasticsearch-py 9 uses REST compatible-with=9, which ES 8.x rejects (400).
+elasticsearch>=8.13.0,<9.0.0
+

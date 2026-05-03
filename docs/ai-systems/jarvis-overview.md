@@ -7,7 +7,7 @@ Jarvis is the hands-free AI assistant built into FinSight. It lets you navigate 
 ## Overview
 
 ```
-You speak → Browser captures audio → FastAPI transcribes → Dify classifies intent → FinSight responds
+You speak → Browser captures audio → FastAPI transcribes → LangGraph classifies intent → FinSight responds
 ```
 
 Jarvis supports **6 intent types**:
@@ -45,3 +45,15 @@ The panel shows your live transcript as soon as you stop speaking.
 - [Intent Classifier Prompt](./intent-classifier.md) — the system prompt used for routing
 - [Deployment Guide](./deployment.md) — local Docker + production setup
 - [Phase Roadmap](./roadmap.md) — what's coming next
+
+---
+
+## Intent Engines
+
+Jarvis currently supports three intent engines via `JARVIS_INTENT_ENGINE`:
+
+| Engine | Status | Notes |
+|---|---|---|
+| `langgraph` | Primary | Full LangChain + LangGraph flow (transcript refinement, classification, routing, small-talk branch) |
+| `keyword` | Fallback | Deterministic regex routing, no external API needed |
+| `dify` | Legacy | Kept for backward compatibility only |

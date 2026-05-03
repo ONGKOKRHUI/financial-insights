@@ -281,17 +281,331 @@ def handle_financial(state: JarvisState) -> dict:
     return {"output": output}
 
 
+def _call_rag(
+    question: str,
+    scope: str,
+    ticker: Optional[str] = None,
+    top_k: int = 4,
+) -> tuple[str, str, list[dict]]:
+    """Call the RAG retrieval + answer service.
+
+    Returns (answer_text, confidence, sources_list).
+    Falls back gracefully on any error.
+    """
+    try:
+        from services.rag_retriever import retrieve
+        from services.rag_answer import generate_answer
+
+        result = retrieve(question=question, scope=scope, ticker=ticker, top_k=top_k)
+        answer_text, _abstained, confidence = generate_answer(
+            question=question, chunks=result.chunks
+        )
+        sources = [
+            {
+                "title": c.title,
+                "source_path": c.source_path,
+                "snippet": c.snippet,
+                "rank": c.rank,
+            }
+            for c in result.chunks[:3]
+        ]
+        return answer_text, confidence, sources
+    except Exception as exc:
+        logger.warning("RAG service call failed: %s", exc)
+        return "", "low", []
+
+
+# ── Company profile — direct PostgreSQL lookup ────────────────────────────────
+
+
+def _get_company_profile(ticker: str) -> tuple[str, list[dict]]:
+    """Fetch company data from PostgreSQL and return (formatted_text, sources).
+
+    Queries Company, KPISummary, and QualitativeInsight models directly so that
+    handle_company_info never depends on an Elasticsearch index that contains no
+    company documents.
+    """
+    import json as _json
+
+    try:
+        from database import SessionLocal
+        from models import (
+            Company,
+            KPISummary as KPISummaryModel,
+            QualitativeInsight as QualitativeInsightModel,
+        )
+
+        db = SessionLocal()
+        try:
+            company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
+            if not company:
+                return "", []
+
+            kpi = (
+                db.query(KPISummaryModel)
+                .filter(KPISummaryModel.ticker == ticker.upper())
+                .order_by(KPISummaryModel.fiscal_year.desc())
+                .first()
+            )
+            qualitative = (
+                db.query(QualitativeInsightModel)
+                .filter(QualitativeInsightModel.ticker == ticker.upper())
+                .order_by(QualitativeInsightModel.fiscal_year.desc())
+                .first()
+            )
+        finally:
+            db.close()
+
+        lines: list[str] = [
+            f"## {company.name} ({company.ticker})",
+            f"Sector: {company.sector} | Industry: {company.industry}",
+        ]
+        if company.founded:
+            lines.append(f"Founded: {company.founded}")
+        if company.headquarters:
+            lines.append(f"Headquarters: {company.headquarters}")
+        if company.employees:
+            lines.append(f"Employees: {company.employees:,}")
+        if company.market_cap_bln:
+            lines.append(f"Market Cap: MYR {company.market_cap_bln:.1f}B")
+        if company.description:
+            lines.append(f"\n{company.description}")
+
+        if kpi:
+            lines.append(f"\n### Key Financials (FY{kpi.fiscal_year})")
+            if kpi.revenue_bln is not None:
+                lines.append(f"- Revenue: MYR {kpi.revenue_bln:.1f}B")
+            if kpi.net_income_bln is not None:
+                lines.append(f"- Net Income: MYR {kpi.net_income_bln:.1f}B")
+            if kpi.eps is not None:
+                lines.append(f"- EPS: {kpi.eps}")
+            if kpi.pe_ratio is not None:
+                lines.append(f"- P/E Ratio: {kpi.pe_ratio}")
+            if kpi.roe_pct is not None:
+                lines.append(f"- ROE: {kpi.roe_pct}%")
+            if kpi.dividend_yield_pct is not None:
+                lines.append(f"- Dividend Yield: {kpi.dividend_yield_pct}%")
+
+        if qualitative:
+            lines.append(f"\n### Outlook (FY{qualitative.fiscal_year})")
+            if qualitative.future_outlook:
+                lines.append(qualitative.future_outlook)
+            if qualitative.key_strategic_events:
+                try:
+                    events = _json.loads(qualitative.key_strategic_events)
+                    if events:
+                        lines.append("\nKey Strategic Events:")
+                        for e in events[:3]:
+                            lines.append(f"- {e}")
+                except Exception:
+                    pass
+
+        context_text = "\n".join(lines)
+        sources = [
+            {
+                "title": f"{company.name} ({company.ticker}) — Company Profile",
+                "source_path": f"/companies/{company.ticker}",
+                "snippet": (company.description or "")[:200],
+                "rank": 1,
+            }
+        ]
+        return context_text, sources
+
+    except Exception as exc:
+        logger.warning("Company DB lookup failed for %s: %s", ticker, exc)
+        return "", []
+
+
+# ── Documentation — file-based fallback ──────────────────────────────────────
+
+
+def _load_docs_context() -> str:
+    """Read docs/api-reference/*.md and frontend/src/app/api-docs/page.tsx.
+
+    Used as a fallback when the Elasticsearch index has no indexed documentation.
+    """
+    from pathlib import Path
+
+    file_path = Path(__file__).resolve()
+    repo_root = None
+
+    # Resolve repo root robustly across local dev and Docker.
+    for parent in file_path.parents:
+        if (parent / "docs" / "api-reference").exists():
+            repo_root = parent
+            break
+    if repo_root is None:
+        if (Path("/app") / "docs" / "api-reference").exists():
+            repo_root = Path("/app")
+        else:
+            repo_root = Path.cwd()
+
+    parts: list[str] = []
+
+    docs_dir = repo_root / "docs" / "api-reference"
+    if docs_dir.exists():
+        for md_file in sorted(docs_dir.rglob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+                title = md_file.stem.replace("-", " ").title()
+                parts.append(f"## {title}\n\n{content[:3000]}")
+            except Exception as exc:
+                logger.debug("Could not read %s: %s", md_file, exc)
+    else:
+        logger.debug("docs/api-reference/ not found at %s", docs_dir)
+
+    # Also include endpoint summaries extracted from page.tsx
+    tsx_path = repo_root / "frontend" / "src" / "app" / "api-docs" / "page.tsx"
+    if tsx_path.exists():
+        try:
+            tsx_text = tsx_path.read_text(encoding="utf-8")
+            extracted = _extract_tsx_docs(tsx_text)
+            if extracted:
+                parts.append(f"## API Docs Page (page.tsx)\n\n{extracted}")
+        except Exception as exc:
+            logger.debug("Could not read page.tsx: %s", exc)
+
+    return "\n\n---\n\n".join(parts)
+
+
+def _extract_tsx_docs(text: str) -> str:
+    """Extract endpoint documentation strings from api-docs/page.tsx.
+
+    Pulls method, path, summary, description, and param descriptions from the
+    ENDPOINTS constant so the content is indexable / usable as LLM context.
+    """
+    import re
+
+    sections: list[str] = []
+
+    # Authentication note (hardcoded — present in the JSX section)
+    sections.append(
+        "## Authentication\n"
+        "Phase 3 — Open API. No authentication is required. All endpoints are publicly accessible.\n"
+        "API keys (X-API-Key header) are planned for Phase 4 — no endpoint path changes expected."
+    )
+
+    # ENDPOINTS array: extract method, path, summary, description
+    # Each entry looks like:
+    #   id: "...",
+    #   method: "GET",
+    #   path: "/companies",
+    #   summary: "...",
+    #   description: "..." or description:\n      "..."
+    ep_re = re.compile(
+        r'id:\s*"([^"]+)",\s*\n\s*method:\s*"(GET|POST)",\s*\n\s*path:\s*"([^"]+)",\s*\n'
+        r'\s*summary:\s*"([^"]+)",\s*\n\s*description:\s*\n?\s*"((?:[^"\\]|\\.)*)"',
+        re.DOTALL,
+    )
+    param_re = re.compile(
+        r'name:\s*"([^"]+)",\s*type:\s*"([^"]+)",\s*required:\s*(true|false),\s*description:\s*"([^"]+)"'
+    )
+
+    for m in ep_re.finditer(text):
+        _id, method, path, summary, description = m.groups()
+        section_lines = [
+            f"### {method} {path}",
+            f"**{summary}**",
+            "",
+            description.strip(),
+        ]
+
+        # Find the params array for this endpoint (search a window after the description)
+        start = m.end()
+        window = text[start : start + 600]
+        params = param_re.findall(window)
+        if params:
+            section_lines.append("\nParameters:")
+            for pname, ptype, preq, pdesc in params:
+                req_label = "required" if preq == "true" else "optional"
+                section_lines.append(f"- `{pname}` ({ptype}, {req_label}): {pdesc}")
+
+        sections.append("\n".join(section_lines))
+
+    # ERRORS array
+    error_re = re.compile(
+        r'status:\s*"(\d+)",\s*name:\s*"([^"]+)",\s*description:\s*"([^"]+)"'
+    )
+    error_lines = ["## HTTP Error Codes"]
+    for em in error_re.finditer(text):
+        status, name, desc = em.groups()
+        error_lines.append(f"- **{status} {name}**: {desc}")
+    if len(error_lines) > 1:
+        sections.append("\n".join(error_lines))
+
+    return "\n\n".join(sections)
+
+
+def _answer_from_context(question: str, context: str) -> str:
+    """Generate a grounded answer from inline file context using Gemini.
+
+    Used when the Elasticsearch index is empty or returns no relevant chunks.
+    Returns an empty string if the context does not contain a useful answer.
+    """
+    if not context.strip():
+        return ""
+
+    system = (
+        "You are a precise documentation assistant for FinSight, a Malaysian financial data platform. "
+        "Answer the user's question using ONLY the context provided below. "
+        "Be concise (2–5 sentences). "
+        "If the context does not contain enough information, reply with exactly: "
+        "ABSTAIN: Not found in the documentation."
+    )
+    user = f"Context:\n\n{context}\n\nQuestion: {question}\n\nAnswer:"
+
+    try:
+        result = _get_llm(temperature=0.1).invoke(
+            [SystemMessage(content=system), HumanMessage(content=user)]
+        )
+        answer = result.content.strip()
+        if answer.startswith("ABSTAIN:"):
+            return ""
+        return answer
+    except Exception as exc:
+        logger.warning("_answer_from_context LLM call failed: %s", exc)
+        return ""
+
+
 def handle_company_info(state: JarvisState) -> dict:
-    """Placeholder — Company profile information (Phase 3)."""
+    """Retrieve company profile from PostgreSQL (direct DB query, not ES)."""
     company = state["entities"].get("company") or ""
+    ticker = (state["entities"].get("company") or "").strip().upper() or None
+    question = state["refined_text"] or f"Tell me about {company}"
+
+    context_text, sources = "", []
+    if ticker:
+        context_text, sources = _get_company_profile(ticker)
+
+    if not context_text:
+        message = (
+            f"I couldn't find profile information for {company}. "
+            "Try navigating to their company page instead."
+        ) if company else "Please specify a company name."
+        output = {
+            "action": "respond",
+            "target": None,
+            "message": message,
+            "voice": message,
+            "intent_id": 3,
+            "refined_transcript": state["refined_text"],
+            "sources": [],
+            "confidence": state["confidence"],
+            "engine": "langgraph",
+        }
+        return {"output": output}
+
+    answer = _answer_from_context(question, context_text) or context_text
+    voice = answer[:300] if len(answer) > 300 else answer
+
     output = {
         "action": "respond",
         "target": None,
-        "message": f"Company profile information for {company} is coming soon.".strip(),
-        "voice": "Company info search is coming soon.",
+        "message": answer,
+        "voice": voice,
         "intent_id": 3,
         "refined_transcript": state["refined_text"],
-        "sources": [],
+        "sources": sources,
         "confidence": state["confidence"],
         "engine": "langgraph",
     }
@@ -299,15 +613,54 @@ def handle_company_info(state: JarvisState) -> dict:
 
 
 def handle_documentation(state: JarvisState) -> dict:
-    """Placeholder — Documentation search (Phase 3)."""
+    """Answer platform/API documentation questions.
+
+    Primary path: Elasticsearch hybrid RAG (BM25 + KNN) over indexed docs.
+    Fallback path: read docs/api-reference/*.md + page.tsx directly and answer
+    with Gemini — used when the ES index is empty or returns no relevant chunks.
+    """
+    question = state["refined_text"]
+
+    # 1. Try ES-based hybrid retrieval first
+    answer, _confidence, sources = _call_rag(
+        question=question,
+        scope="documentation",
+        top_k=4,
+    )
+
+    # 2. Fall back to direct file reading when ES returns nothing
+    if not sources:
+        logger.info("ES returned no doc chunks — falling back to file-based context")
+        context = _load_docs_context()
+        answer = _answer_from_context(question, context)
+        if answer:
+            sources = [
+                {
+                    "title": "FinSight API Reference",
+                    "source_path": "docs/api-reference/",
+                    "snippet": "",
+                    "rank": 1,
+                }
+            ]
+
+    if not answer:
+        message = (
+            "I couldn't find a relevant answer in the FinSight documentation. "
+            "You can browse the full API reference at /api-docs."
+        )
+        voice = "I couldn't find documentation for that. Try browsing the API docs page."
+    else:
+        message = answer
+        voice = answer[:300] if len(answer) > 300 else answer
+
     output = {
         "action": "respond",
         "target": None,
-        "message": f"Documentation search is coming soon. You asked: {state['refined_text']}",
-        "voice": "Documentation search is coming soon.",
+        "message": message,
+        "voice": voice,
         "intent_id": 4,
         "refined_transcript": state["refined_text"],
-        "sources": [],
+        "sources": sources,
         "confidence": state["confidence"],
         "engine": "langgraph",
     }

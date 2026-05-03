@@ -1,10 +1,10 @@
-# Jarvis — Intent Classifier System Prompt
+# Jarvis — Intent Classifier (LangGraph)
 
-This is the complete system prompt used by the **Intent Classifier LLM node** in the Dify Cloud workflow. Copy this verbatim into the system prompt field of the LLM node.
+This page documents the classifier prompt and schema used by the `langgraph` intent engine in `src/backend/services/langgraph_intent.py`.
 
-!!! tip "Where to paste this"
-    In your Dify Cloud workflow → **Node 2 (Intent Classifier)** → `System Prompt` field.
-    Set the model to `gemini-1.5-pro` or `gpt-4o-mini`, enable **JSON mode**, and set temperature to `0`.
+!!! info "Current implementation"
+    Jarvis intent classification now runs in-process via LangChain + LangGraph.
+    The Dify workflow is retained as a legacy engine (`JARVIS_INTENT_ENGINE=dify`).
 
 ---
 
@@ -55,6 +55,20 @@ Extract all named entities (company names, tickers, financial terms) relevant to
   "reasoning": "<one sentence explaining your classification>"
 }
 ```
+
+---
+
+## Runtime Settings
+
+The classifier node runs with:
+
+| Setting | Value |
+|---|---|
+| Model | `JARVIS_GEMINI_MODEL` (fallback: `GEMINI_MODEL`, default: `gemini-2.0-flash`) |
+| Temperature | `0.0` |
+| Output mode | `ChatGoogleGenerativeAI.with_structured_output(IntentOutput)` |
+
+Because structured output is enforced at runtime, a separate JSON-parser node is not required in the LangGraph pipeline.
 
 ---
 
@@ -195,7 +209,7 @@ Extract all named entities (company names, tickers, financial terms) relevant to
 
 ---
 
-## Node 1 — Transcript Refinement Prompt
+## Transcript Refinement Prompt
 
 This is the prompt for the **first** LLM node (Transcript Refinement) that runs *before* the Intent Classifier.
 
@@ -216,35 +230,7 @@ Input transcript: {{raw_transcript}}
 
 ---
 
-## Node 3 — JSON Parser Code (Python)
+## Legacy Dify Notes
 
-Paste this into the Dify **Code Node** (Python runtime) that validates the intent classifier output:
-
-```python
-import json
-
-def main(raw_json: str) -> dict:
-    """Parse and validate the intent classifier JSON output.
-    Falls back to intent_id=6 (Sensitive) if parsing fails — safe default.
-    """
-    try:
-        data = json.loads(raw_json)
-        intent_id = int(data.get("intent_id", 6))
-        if intent_id not in range(1, 7):
-            intent_id = 6
-        return {
-            "intent_id": intent_id,
-            "intent_name": data.get("intent_name", "SensitiveTopic"),
-            "confidence": float(data.get("confidence", 0.0)),
-            "refined_text": str(data.get("refined_text", "")),
-            "entities": data.get("entities", {}),
-        }
-    except (json.JSONDecodeError, ValueError, TypeError):
-        return {
-            "intent_id": 6,
-            "intent_name": "SensitiveTopic",
-            "confidence": 0.0,
-            "refined_text": "",
-            "entities": {},
-        }
-```
+If you still run `JARVIS_INTENT_ENGINE=dify`, you can continue using this prompt in your Dify workflow.
+For new deployments, prefer `langgraph` so refinement, classification, routing, and fallback all run in backend code.

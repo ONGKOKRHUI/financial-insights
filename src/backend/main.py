@@ -12,6 +12,7 @@ Phase 4 additions
 - CORS updated to allow credentials (required for HttpOnly cookie auth)
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -24,7 +25,10 @@ from routers import admin, companies, financials, jarvis, search
 from routers import auth as auth_router
 from routers import users as users_router
 from routers import webhooks
+from routers import rag as rag_router
 from seed import seed_if_empty
+
+logger = logging.getLogger(__name__)
 
 TAGS_METADATA = [
     {
@@ -72,6 +76,14 @@ TAGS_METADATA = [
         "name": "webhooks",
         "description": "Stripe webhook receiver — not for direct client use.",
     },
+    {
+        "name": "rag",
+        "description": (
+            "Phase 5 RAG — natural-language question answering over ingested "
+            "Markdown documentation using Elasticsearch hybrid search (BM25 + KNN) "
+            "and Gemini-grounded answers."
+        ),
+    },
 ]
 
 
@@ -84,6 +96,15 @@ async def lifespan(app: FastAPI):
         seed_if_empty(db)
     finally:
         db.close()
+    # RAG: ensure ES docs index + alias exist (idempotent; fresh Docker ES has none)
+    if os.getenv("RAG_BOOTSTRAP_ES_INDEX", "1") not in ("0", "false", "False"):
+        try:
+            from services.es_client import get_es_client
+            from services.es_docs_index import ensure_docs_index
+
+            ensure_docs_index(get_es_client())
+        except Exception as exc:
+            logger.warning("Elasticsearch docs index bootstrap skipped: %s", exc)
     yield
 
 
@@ -127,6 +148,7 @@ app.include_router(companies.router)
 app.include_router(financials.router)
 app.include_router(search.router)
 app.include_router(jarvis.router)
+app.include_router(rag_router.router)
 
 
 @app.get("/", tags=["health"])
@@ -138,4 +160,6 @@ def root():
 @app.get("/health", tags=["health"])
 def health():
     """Liveness probe used by Render and CI pipelines."""
-    return {"status": "ok"}
+    from services.es_client import es_health
+
+    return {"status": "ok", "elasticsearch": es_health()}
