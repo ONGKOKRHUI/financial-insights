@@ -316,21 +316,23 @@ def test_bug6_not_present_is_access_token_check_exists():
 
 
 # ===========================================================================
-# BUG-7 (NOT PRESENT) · webhooks.py — stripe_customer_id lookup already used
+# BUG-7 · webhooks.py — match Stripe customer to app user (ID + email fallback)
 # ===========================================================================
 
-def test_bug7_not_present_webhook_uses_stripe_customer_id():
-    """BUG-7 is not present: webhook already looks up users by stripe_customer_id."""
+def test_bug7_webhook_matches_stripe_customer_and_email_fallback():
+    """Webhook must resolve users by stored stripe_customer_id and by checkout metadata email."""
     webhooks_path = os.path.join(_REPO_ROOT, "src", "backend", "routers", "webhooks.py")
     with open(webhooks_path) as f:
         source = f.read()
 
-    assert "stripe_customer_id" in source, (
-        "BUG-7 guard: webhook must use stripe_customer_id for user lookup"
-    )
-    # Verify it does NOT fall back to email-based lookup in _upgrade_user_to_paid
     assert "User.stripe_customer_id ==" in source, (
-        "BUG-7 guard: _upgrade_user_to_paid must filter by stripe_customer_id"
+        "BUG-7 guard: _upgrade_user_to_paid must filter by stripe_customer_id first"
+    )
+    assert "User.email ==" in source, (
+        "BUG-7 guard: _upgrade_user_to_paid must fall back to email when customer is new"
+    )
+    assert "lookup_email" in source, (
+        "BUG-7 guard: signed webhook payload must pass lookup_email for Checkout metadata"
     )
 
 

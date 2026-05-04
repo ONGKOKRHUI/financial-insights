@@ -7,7 +7,8 @@ payload was not tampered with.
 
 Handled events
 --------------
-- ``invoice.payment_succeeded``      — upgrade user to ``paid``, generate API key
+- ``checkout.session.completed``     — upgrade user to ``paid`` (matches Checkout customer to DB user)
+- ``invoice.payment_succeeded``      — same upgrade path (covers renewals / if only invoice is configured)
 - ``customer.subscription.deleted``  — downgrade user to ``free``, revoke API keys
 
 Environment variables required
@@ -49,20 +50,40 @@ def _get_db() -> Session:
         raise
 
 
-def _upgrade_user_to_paid(customer_id: str, subscription_id: str, db: Session) -> None:
+def _upgrade_user_to_paid(
+    customer_id: str | None,
+    subscription_id: str | None,
+    db: Session,
+    *,
+    lookup_email: str | None = None,
+) -> None:
     """Upgrade a user to the ``paid`` role and issue an API key.
 
+    Checkout is created with ``customer_email`` (no pre-created ``customer`` on the user row),
+    so the first webhook often sees a new ``cus_…`` that does not yet exist on ``User``.
+    In that case we match ``lookup_email`` from Stripe-signed metadata / invoice fields,
+    then persist ``stripe_customer_id`` for later subscription events.
+
     Args:
-        customer_id:     Stripe customer ID stored on the user record.
+        customer_id:     Stripe customer ID from the event (may be new vs DB).
         subscription_id: Stripe subscription ID to persist on the user.
         db:              Active database session.
+        lookup_email:    Email from Checkout ``metadata`` or invoice ``customer_email``.
     """
-    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    user = None
+    if customer_id:
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    if not user and lookup_email:
+        user = db.query(User).filter(User.email == lookup_email).first()
     if not user or user.role == "paid":
         return  # No matching user or user is already paid— likely a test event; silently ignore
+    if not subscription_id:
+        return
 
     user.role = "paid"
     user.stripe_subscription_id = subscription_id
+    if customer_id:
+        user.stripe_customer_id = customer_id
 
     # Revoke any old keys before issuing the new one
     db.query(APIKey).filter(
@@ -146,16 +167,24 @@ async def stripe_webhook(
     try:
         if event["type"] == "checkout.session.completed":
             session = event["data"]["object"]
+            meta = session.get("metadata") or {}
+            user_email = meta.get("user_email")
 
             _upgrade_user_to_paid(
                 customer_id=session.get("customer"),
                 subscription_id=session.get("subscription"),
                 db=db,
+                lookup_email=user_email,
             )
 
         elif event["type"] == "invoice.payment_succeeded":
-            # Optional: handle renewals (no role change, no API key regen)
-            pass
+            invoice = event["data"]["object"]
+            _upgrade_user_to_paid(
+                customer_id=invoice.get("customer"),
+                subscription_id=invoice.get("subscription"),
+                db=db,
+                lookup_email=invoice.get("customer_email"),
+            )
 
         elif event["type"] == "customer.subscription.deleted":
             subscription = event["data"]["object"]

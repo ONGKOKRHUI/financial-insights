@@ -1066,3 +1066,24 @@
 [2026-05-02T15:53:27.197+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:53:27.195+0000] {dag.py:3089} INFO - Sync 1 DAGs
 [2026-05-02T15:53:27.256+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:53:27.256+0000] {dag.py:3947} INFO - Setting next_dagrun for finsight_etl to 2026-05-01 00:00:00+00:00, run_after=2026-05-02 00:00:00+00:00
 [2026-05-02T15:53:27.303+0000] {processor.py:183} INFO - Processing /opt/airflow/dags/finsight_etl_dag.py took 0.262 seconds
+[2026-05-02T15:53:57.989+0000] {processor.py:161} INFO - Started process (PID=225) to work on /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:53:57.991+0000] {processor.py:830} INFO - Processing file /opt/airflow/dags/finsight_etl_dag.py for tasks to queue
+[2026-05-02T15:53:57.996+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:53:57.995+0000] {dagbag.py:545} INFO - Filling up the DagBag from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:53:58.069+0000] {processor.py:840} INFO - DAG(s) 'finsight_etl' retrieved from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:53:58.163+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:53:58.163+0000] {dag.py:3089} INFO - Sync 1 DAGs
+[2026-05-02T15:53:58.227+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:53:58.227+0000] {dag.py:3947} INFO - Setting next_dagrun for finsight_etl to 2026-05-01 00:00:00+00:00, run_after=2026-05-02 00:00:00+00:00
+[2026-05-02T15:53:58.601+0000] {processor.py:183} INFO - Processing /opt/airflow/dags/finsight_etl_dag.py took 0.636 seconds
+[2026-05-02T15:54:28.784+0000] {processor.py:161} INFO - Started process (PID=236) to work on /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:28.786+0000] {processor.py:830} INFO - Processing file /opt/airflow/dags/finsight_etl_dag.py for tasks to queue
+[2026-05-02T15:54:28.789+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:28.788+0000] {dagbag.py:545} INFO - Filling up the DagBag from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:28.829+0000] {processor.py:840} INFO - DAG(s) 'finsight_etl' retrieved from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:28.895+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:28.894+0000] {dag.py:3089} INFO - Sync 1 DAGs
+[2026-05-02T15:54:29.218+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:29.218+0000] {dag.py:3947} INFO - Setting next_dagrun for finsight_etl to 2026-05-01 00:00:00+00:00, run_after=2026-05-02 00:00:00+00:00
+[2026-05-02T15:54:29.251+0000] {processor.py:183} INFO - Processing /opt/airflow/dags/finsight_etl_dag.py took 0.478 seconds
+[2026-05-02T15:54:59.525+0000] {processor.py:161} INFO - Started process (PID=247) to work on /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:59.528+0000] {processor.py:830} INFO - Processing file /opt/airflow/dags/finsight_etl_dag.py for tasks to queue
+[2026-05-02T15:54:59.532+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:59.531+0000] {dagbag.py:545} INFO - Filling up the DagBag from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:59.577+0000] {processor.py:840} INFO - DAG(s) 'finsight_etl' retrieved from /opt/airflow/dags/finsight_etl_dag.py
+[2026-05-02T15:54:59.927+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:59.927+0000] {dag.py:3089} INFO - Sync 1 DAGs
+[2026-05-02T15:54:59.969+0000] {logging_mixin.py:188} INFO - [2026-05-02T15:54:59.968+0000] {dag.py:3947} INFO - Setting next_dagrun for finsight_etl to 2026-05-01 00:00:00+00:00, run_after=2026-05-02 00:00:00+00:00
+[2026-05-02T15:55:00.001+0000] {processor.py:183} INFO - Processing /opt/airflow/dags/finsight_etl_dag.py took 0.494 seconds
