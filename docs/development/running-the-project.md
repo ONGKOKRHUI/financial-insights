@@ -67,17 +67,17 @@ docker compose -f docker-compose.airflow.yml exec -T airflow-webserver \
 5. Smoke-test DAG end-to-end:
 
 ```bash
-python scripts/test_airflow_pipeline_local.py
+python tests/test_phase4_airflow_pipeline_local.py
 ```
 
 Fast local check (recommended default):
 
 ```bash
 # Process only 1 unprocessed PDF
-python scripts/test_airflow_pipeline_local.py --max-pdfs 1
+python tests/test_phase4_airflow_pipeline_local.py --max-pdfs 1
 
 # Process up to 3 PDFs
-python scripts/test_airflow_pipeline_local.py --max-pdfs 3
+python tests/test_phase4_airflow_pipeline_local.py --max-pdfs 3
 ```
 
 ---
@@ -96,11 +96,11 @@ docker compose -f docker-compose.airflow.yml down
 docker compose -f docker-compose.airflow.yml up -d --build
 ```
 
-Run test with explicit override if needed:
+Run validation harnesses with explicit overrides if needed:
 
 ```bash
-python scripts/test_airflow_pipeline_local.py --pipeline-engine langgraph
-python scripts/test_airflow_pipeline_local.py --pipeline-engine dify
+python tests/test_phase4_airflow_pipeline_local.py --pipeline-engine langgraph
+python tests/test_phase4_airflow_pipeline_local.py --pipeline-engine dify
 ```
 
 ---
@@ -125,5 +125,5 @@ npm run build
 
 # Backend/Python tests from repo root
 cd ..
-python -m pytest tests/test_validation_accuracy.py -q
+python -m pytest tests/test_phase4_run_pdf_pipeline_validation.py -q
 ```

@@ -36,12 +36,12 @@ src/backend/
 │   └── mock_data.py      # Static mock data for 8 companies, 5 fiscal years each
 ├── routers/
 │   ├── auth.py           # POST /auth/register|login|refresh|logout
-│   ├── users.py          # GET /users/me, POST /users/me/api-key
+│   ├── users.py          # GET /users/me, GET /users/me/api-key, POST /users/me/api-key/rotate
 │   ├── admin.py          # GET/PATCH/DELETE /admin/users (admin-only)
 │   ├── companies.py      # GET /companies, /companies/{ticker}, /companies/{ticker}/summary|qualitative
 │   ├── financials.py     # GET /financials/{ticker}/income-statement|balance-sheet|cash-flow
 │   ├── search.py         # POST /search (unified query, requires paid/admin)
-│   ├── jarvis.py         # POST /api/jarvis/text-intent|voice|synthesize (voice assistant)
+│   ├── jarvis.py         # Jarvis voice endpoints: /intent/stream, /voice/stream, /voice, /speak, /health
 │   └── webhooks.py       # POST /webhooks/stripe (Stripe subscription lifecycle)
 ├── services/
 │   ├── asr.py            # Speech-to-text (Whisper local or Gemini API)
@@ -93,12 +93,12 @@ Authentication is enforced at the dependency level (not middleware) via `get_cur
 | Router         | Prefix         | Methods        | Auth Required  | Endpoints                                                      |
 |----------------|----------------|----------------|----------------|----------------------------------------------------------------|
 | `auth`         | `/auth`        | POST           | No (public)    | register, login, refresh, logout                               |
-| `users`        | `/users`       | GET, POST      | Session cookie | profile (GET /me), API key management (POST /me/api-key)       |
+| `users`        | `/users`       | GET, POST      | Session cookie | profile (`GET /me`), API key info (`GET /me/api-key`), rotate (`POST /me/api-key/rotate`) |
 | `admin`        | `/admin`       | GET, PATCH, DELETE | Admin role | user list, update role/status, delete user                     |
 | `companies`    | `/companies`   | GET            | No (public)    | list, detail, KPI summary, qualitative insight                 |
 | `financials`   | `/financials`  | GET            | No (public)    | income statement, balance sheet, cash flow (per ticker)        |
 | `search`       | `/search`      | POST           | Paid/Admin     | unified payload-based query across all statement types         |
-| `jarvis`       | `/api/jarvis`  | POST, GET      | No             | text-intent, voice, synthesize, legacy, health                 |
+| `jarvis`       | `/api/jarvis`  | POST, GET      | No             | `intent/stream`, `voice/stream`, `voice`, `speak`, `health`   |
 | `webhooks`     | `/webhooks`    | POST           | Stripe signature | Stripe subscription lifecycle events                         |
 
 All data routers use `Depends(get_db)` for database session injection.
@@ -169,7 +169,7 @@ All configuration is via environment variables:
 | Variable           | Default                                | Description                             |
 |--------------------|----------------------------------------|-----------------------------------------|
 | `DATABASE_URL`     | `postgresql://postgres:postgres@localhost:5432/finsight` | PostgreSQL connection string |
-| `ALLOWED_ORIGINS`  | `*`                                    | Comma-separated CORS allowed origins    |
+| `ALLOWED_ORIGINS`  | `http://localhost:3000`                | Comma-separated CORS allowed origins    |
 | `SECRET_KEY`       | *(required)*                           | JWT signing secret (HS256)              |
 | `ALGORITHM`        | `HS256`                                | JWT algorithm                           |
 | `COOKIE_SECURE`    | `true`                                 | Set to `false` for local HTTP dev       |

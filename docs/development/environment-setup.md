@@ -101,8 +101,9 @@ cd frontend
 npm install
 
 # Create a local env file for Next.js
-cp .env.example .env.local
-# Edit .env.local: set INTERNAL_API_URL=http://localhost:8000
+cp ../.env.example .env.local
+# Then edit .env.local to keep only frontend-relevant vars:
+# NEXT_PUBLIC_API_URL, INTERNAL_API_URL, NEXT_PUBLIC_APP_URL, STRIPE_PRO_PRICE_ID
 
 npm run dev
 # → http://localhost:3000

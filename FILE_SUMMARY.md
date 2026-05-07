@@ -338,3 +338,52 @@
 | `deploy-backend.yml` | Backend CI — validates Python imports, triggers Render deploy hook on push to `main` |
 | `deploy-frontend.yml` | Frontend CI — TypeScript check, build, deploy to Vercel on push to `main` |
 | `deploy-docs-on-main.yml` | Docs CI — builds MkDocs site and deploys to GitHub Pages |
+
+# FinSight File Summary (Maintained)
+
+> Last verified: 2026-05-07  
+> Scope: current high-signal index for developers; historical notes are kept in phase files.
+
+---
+
+## Core Runtime Areas
+
+| Area | Path | What it does |
+|---|---|---|
+| Frontend app | `frontend/src` | Next.js UI, BFF API routes, auth flows, paid/admin dashboards, Jarvis UI. |
+| Backend API | `src/backend` | FastAPI REST API, auth/RBAC, Stripe webhooks, Jarvis speech endpoints. |
+| ETL pipeline | `src/pipeline` | LangGraph/Dify extraction workflow from PDF markdown to structured payload. |
+| Data loader | `src/db` | PostgreSQL upsert and processed-file tracking. |
+| Scraper | `src/scraper` | Company-specific Playwright scrapers writing PDFs into raw storage. |
+| Job orchestration | `src/jobs` | Weekly ingestion orchestration (`jobs.weekly_ingestion`). |
+| Airflow DAGs | `dags` | Optional local orchestration flow for ETL debugging and smoke runs. |
+| Tests | `tests`, `src/backend/tests` | Integration-heavy project tests + backend unit/API tests. |
+| Product docs | `docs` | MkDocs site content for architecture, APIs, operations, and setup. |
+| Dev trace docs | `dev-documentation` | Phase notes, implementation logs, runbooks, decisions, and historical context. |
+
+---
+
+## Root Files (Current)
+
+| File | Purpose |
+|---|---|
+| `README.md` | Main project overview, architecture, local setup, deployment notes. |
+| `readme_jarvis.md` | Jarvis-specific deployment and operations guide. |
+| `.env.example` | Canonical local env template for backend/frontend/pipeline/airflow/jarvis. |
+| `.gitignore`, `.dockerignore` | Ignore rules for VCS and Docker build context. |
+| `docker-compose.yml` | Local core stack: postgres + backend + frontend. |
+| `docker-compose.airflow.yml` | Optional local Airflow stack with separate metadata DB. |
+| `Dockerfile.airflow` | Airflow image with pipeline dependencies. |
+| `mkdocs.yml` | Documentation site nav/theme/plugins config. |
+| `Makefile` | Docs commands (`serve`, `build`). |
+| `package.json`, `package-lock.json` | Root Node dependency metadata (currently minimal). |
+| `requirements.txt` | Python dependencies for docs tooling. |
+
+---
+
+## Notes For Maintainers
+
+- Keep this file as a **living index**, not a line-by-line inventory dump.
+- When adding/removing significant modules, update this index in the same PR.
+- Use repo-relative paths only; avoid machine-specific absolute paths.
+- If a file is historical or stale by design, mark it clearly as archived in its own header.

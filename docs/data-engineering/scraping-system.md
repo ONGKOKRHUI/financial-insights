@@ -2,7 +2,8 @@
 
 !!! success "Phase 1 — Implemented"
     Automated PDF download scripts for all eight target Malaysian Blue-Chip companies are implemented in Phase 1.  
-    Powered by **Playwright** with anti-bot stealth patches, idempotent disk-based deduplication, and a `schedule`-based weekly ingestion scheduler.
+    Powered by **Playwright** with anti-bot stealth patches and idempotent disk-based deduplication.
+    Operational triggering is now done via `jobs.weekly_ingestion` and pipeline trigger workflows.
 
 ---
 
@@ -125,28 +126,10 @@ The base directory is configurable via `FINSIGHT_RAW_DIR` in `.env` (default: `s
 
 ## Scheduling
 
-### Standalone Scheduler (`src/scraper/scheduler.py`)
+### Archived scheduler
 
-A lightweight `schedule`-based scheduler runs the complete scraper + ETL job automatically without requiring Airflow:
-
-```python
-# Runs once on startup (quick latest-quarter check)
-job(latest_only=True)
-
-# Every Monday at 09:00 AM KL time — scrape latest reports and process them
-schedule.every().monday.at("09:00").do(job, latest_only=True)
-
-# Optional: full backfill every Sunday at 02:00 (catches any gaps)
-# schedule.every().sunday.at("02:00").do(job, latest_only=False)
-```
-
-```bash
-# Start in foreground
-python scheduler.py
-
-# Start in background with logs
-nohup python scheduler.py > scheduler_output.log 2>&1 &
-```
+`src/scraper/scheduler.py` is retained as an archived compatibility stub and is not the
+recommended orchestration path.
 
 ### Two Operating Modes
 
@@ -177,7 +160,7 @@ def current_quarter() -> tuple[int, str]:
 
 The Airflow DAG (`dags/finsight_etl_dag.py`) remains available for deployments that prefer Airflow. It polls `FINSIGHT_RAW_DIR` for new PDFs via `db.loader.get_unprocessed_pdfs()` and processes whatever the scraper or weekly ingestion job has already written.
 
-For the simplified deployment, run only the scheduler/weekly job. For Airflow-based deployments, run the scraper stage and Airflow stack side-by-side:
+For Airflow-based deployments, run the scraper stage and Airflow stack side-by-side:
 
 ```
 scraper scheduler     →  src/scraper/data/raw/  ←  Airflow ETL DAG
@@ -243,6 +226,6 @@ python main.py
 # One-off: check only the latest quarter (fast)
 python main.py --latest
 
-# Scheduled: runs every Monday at 09:00 automatically
-python scheduler.py
+# Scheduled orchestration is handled externally (for example CI triggers)
+# and by invoking jobs.weekly_ingestion in controlled environments.
 ```

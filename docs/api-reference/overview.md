@@ -1,8 +1,8 @@
 # API Overview
 
-!!! success "Phase 3 — Live"
-    The FinSight REST API is live on Render. All endpoints documented here are
-    functional and accessible without authentication.
+!!! success "Live"
+    The FinSight REST API is live on Render.
+    Public market-data endpoints are open, while premium endpoints require authentication.
 
 ---
 
@@ -26,6 +26,9 @@ endpoints are mounted directly at the root (e.g. `/companies`, not `/v1/companie
   to uppercase internally.
 - **No pagination** — The dataset is small (8 companies × 5 years per statement).
   All list endpoints return the full result set.
+- **Tier-aware access** — Public endpoints (companies + financial statements) are open.
+  `POST /search` requires an authenticated `paid` or `admin` user via cookie session
+  or `X-API-Key`.
 - **No filtering or sorting query params** — Data volumes are low enough that filtering
   is done client-side. The `POST /search` endpoint accepts a `fiscal_year` to retrieve
   a specific year.

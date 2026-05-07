@@ -60,7 +60,7 @@ chore: upgrade fastapi to 0.115
 
 ## Pull Request Checklist
 
-- [ ] Tests pass locally (`pytest` / `npm test`)
+- [ ] Tests pass locally (`pytest` / `npm run lint` / `npm run build`)
 - [ ] Linting passes (`ruff check` / `eslint`)
 - [ ] Relevant documentation updated in `docs/`
 - [ ] PR description explains the motivation

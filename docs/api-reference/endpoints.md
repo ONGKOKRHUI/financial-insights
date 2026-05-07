@@ -1,8 +1,9 @@
 # Endpoints
 
-!!! success "Phase 3 — Live"
+!!! success "Live"
     All endpoints below are live at `https://finsight-api.onrender.com`.
-    No authentication is required.
+    Public market-data endpoints are open.
+    `POST /search` requires a paid/admin session or API key.
 
 ---
 
@@ -261,6 +262,11 @@ endpoint. Omit `fiscal_year` to receive the most recent available year.
 | `statement_type` | enum    | yes      | `income_statement` \| `balance_sheet` \| `cash_flow` \| `kpi` \| `qualitative` |
 | `fiscal_year`    | integer | no       | Specific year; omit for latest                                   |
 
+**Authentication**
+
+- Session cookie (`access_token`) for signed-in `paid` or `admin` users, or
+- `X-API-Key: fsk_...` for paid/admin API access.
+
 **Example Request**
 
 ```bash
@@ -294,6 +300,8 @@ curl -X POST "https://finsight-api.onrender.com/search" \
 
 | Status | Condition                              |
 |--------|----------------------------------------|
+| 401    | Missing/invalid session or API key     |
+| 403    | Authenticated but role is not paid/admin |
 | 404    | Ticker not found                       |
 | 422    | Invalid `statement_type` value         |
 
@@ -310,6 +318,6 @@ The following ticker symbols are valid for all endpoints:
 | TNB       | Tenaga Nasional Berhad     | Utilities                  |
 | PETRONAS  | Petroliam Nasional Berhad  | Energy                     |
 | MAXIS     | Maxis Berhad               | Communication Services     |
-| TM        | Telekom Malaysia Berhad    | Communication Services     |
+| TELEKOM   | Telekom Malaysia Berhad    | Communication Services     |
 | GENTING   | Genting Berhad             | Consumer Discretionary     |
 | SUNWAY    | Sunway Berhad              | Real Estate                |
