@@ -1,0 +1,185 @@
+{
+  "configured_pdf_paths": [
+    "C:\\Users\\HP\\Documents\\repos\\financial-insights\\src\\scraper\\data\\raw\\MAYBANK\\MAYBANK_2025_Q4.pdf"
+  ],
+  "pipeline_results": [
+    {
+      "pdf_path": "C:\\Users\\HP\\Documents\\repos\\financial-insights\\src\\scraper\\data\\raw\\MAYBANK\\MAYBANK_2025_Q4.pdf",
+      "status": "success",
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "errors": []
+    }
+  ],
+  "validated_ticker_year_pairs": [
+    [
+      "MAYBANK",
+      2025
+    ]
+  ],
+  "summary": {
+    "total": 12,
+    "passed": 9,
+    "failed": 3,
+    "missing": 0,
+    "accuracy": 0.75
+  },
+  "results": [
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "income_statement",
+      "field": "revenue_bln",
+      "expected_value": 32.59,
+      "actual_value": 32.585587,
+      "tolerance_abs": 0.05,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.004413000000006662
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "income_statement",
+      "field": "operating_income_bln",
+      "expected_value": 14.06,
+      "actual_value": 14.059526,
+      "tolerance_abs": 0.05,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.00047400000000052955
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "income_statement",
+      "field": "net_income_bln",
+      "expected_value": 10.51,
+      "actual_value": 10.831348,
+      "tolerance_abs": 0.05,
+      "passed": false,
+      "error": null,
+      "absolute_error": 0.3213480000000004
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "income_statement",
+      "field": "eps",
+      "expected_value": 0.87,
+      "actual_value": 0.8705,
+      "tolerance_abs": 0.05,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.000500000000000056
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "balance_sheet",
+      "field": "total_assets_bln",
+      "expected_value": 1053.58,
+      "actual_value": 1053.583593,
+      "tolerance_abs": 0.1,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.003593000000137181
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "balance_sheet",
+      "field": "total_liabilities_bln",
+      "expected_value": 956.74,
+      "actual_value": 956.74175,
+      "tolerance_abs": 0.1,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.0017500000000154614
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "balance_sheet",
+      "field": "total_equity_bln",
+      "expected_value": 96.84,
+      "actual_value": 96.841843,
+      "tolerance_abs": 0.1,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.0018429999999938218
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "balance_sheet",
+      "field": "cash_and_equivalents_bln",
+      "expected_value": 40.58,
+      "actual_value": 40.580832,
+      "tolerance_abs": 0.1,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.0008320000000026084
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "balance_sheet",
+      "field": "total_debt_bln",
+      "expected_value": 44.24,
+      "actual_value": 44.237104,
+      "tolerance_abs": 0.1,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.0028959999999997876
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "cash_flow",
+      "field": "operating_cash_flow_bln",
+      "expected_value": -14.95,
+      "actual_value": -14.950795,
+      "tolerance_abs": 0.05,
+      "passed": true,
+      "error": null,
+      "absolute_error": 0.0007950000000001012
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "cash_flow",
+      "field": "capital_expenditure_bln",
+      "expected_value": 0.39,
+      "actual_value": -0.565967,
+      "tolerance_abs": 0.05,
+      "passed": false,
+      "error": null,
+      "absolute_error": 0.955967
+    },
+    {
+      "ticker": "MAYBANK",
+      "fiscal_year": 2025,
+      "report_period": "FY",
+      "statement": "cash_flow",
+      "field": "dividends_paid_bln",
+      "expected_value": 7.49,
+      "actual_value": -7.485756,
+      "tolerance_abs": 0.05,
+      "passed": false,
+      "error": null,
+      "absolute_error": 14.975756
+    }
+  ]
+}

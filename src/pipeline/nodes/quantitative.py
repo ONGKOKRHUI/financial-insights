@@ -245,6 +245,10 @@ def _parse_raw_value(raw_value: str) -> float:
       - Leading/trailing whitespace
     """
     s = raw_value.strip().replace(",", "").replace(" ", "")
+    # Percentages are stored as numeric pct points (e.g. "11.3%" -> 11.3).
+    s = s.rstrip("%")
+    # Some reports embed unit text in the same token (e.g. "87.05sen").
+    s = re.sub(r"(sen|rm)$", "", s, flags=re.IGNORECASE)
     
     # Handle accounting dashes (which mean zero)
     if s == "-" or s == "–" or s == "": 
@@ -253,7 +257,11 @@ def _parse_raw_value(raw_value: str) -> float:
     negative = s.startswith("(") and s.endswith(")")
     if negative:
         s = s[1:-1]
-    return -float(s) if negative else float(s)
+    match = re.search(r"[-+]?\d*\.?\d+", s)
+    if not match:
+        raise ValueError(f"No numeric token found in raw value: {raw_value!r}")
+    numeric = float(match.group(0))
+    return -numeric if negative else numeric
 
 
 def _unit_multiplier(unit_header: str) -> float:
@@ -270,12 +278,20 @@ def _unit_multiplier(unit_header: str) -> float:
     if re.search(r"(billion|'bil|b$)", u):
         return 1.0
 
-    if re.search(r"(million|'mil|m$)", u):
+    if re.search(r"(million|\bmil\b|m$)", u):
         return 1_000.0
 
     # Thousands expressed as RM'000 / RM 000 / '000 / thousand
     if re.search(r"(thousand|'000|000)", u):
         return 1_000_000.0
+
+    # EPS is commonly expressed in sen; convert to MYR by dividing by 100.
+    if re.search(r"\bsen\b", u):
+        return 100.0
+
+    # Percent header doesn't imply monetary scaling.
+    if "%" in u or "percent" in u:
+        return 1.0
 
     # Fallback: no recognised multiplier — return as-is
     logger.warning("Unrecognised unit header %r — no multiplier applied", unit_header)
