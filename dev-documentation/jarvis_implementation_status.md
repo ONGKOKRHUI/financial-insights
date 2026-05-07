@@ -107,44 +107,40 @@ Unified output schema returned to router/frontend:
 
 ---
 
-## Not Completed / Partially Completed
+## Completed (continued)
 
-### 1) Intent 2 Extension (FinancialInfo) - **Not Finished**
-Current state:
-- `handle_financial` in `src/backend/services/langgraph_intent.py` is still a placeholder.
-- It returns a "coming soon" response instead of actual financial retrieval + grounded answer.
+### 6) Intent 2 Extension (FinancialInfo) - **Completed**
 
-What is missing:
-- Real financial data retrieval path for metrics (for example: P/E, EPS, revenue, net income).
-- Entity normalization and metric mapping from natural language.
-- Time-period resolution (for example: last year, latest quarter, FY2023).
-- Grounded response generation with source references and confidence handling.
-- Proper fallback behavior when data is missing.
+`handle_financial` in `src/backend/services/langgraph_intent.py` is fully implemented.
 
-### 2) End-to-End Intent 2 Validation
-- No full E2E test coverage is visible for true FinancialInfo execution.
-- Need integration tests for:
-  - metric questions
-  - ticker + metric + time period combinations
-  - low-confidence / ambiguous financial queries
+Implementation in `src/backend/services/financial_query.py`:
+- `MetricSpec` catalog: 30+ metric aliases across income statement, balance sheet, cash flow, and KPI tables.
+- `resolve_ticker()`: normalises company names to canonical KLSE tickers via static alias map + DB fallback.
+- `resolve_metric()`: maps natural-language phrases (e.g. "earnings per share", "FCF", "P/E") to `MetricSpec`.
+- `parse_fiscal_year()`: parses "FY2024", "last year", "Q3 2024", or `None` (latest available).
+- `lookup_financial_metric()`: deterministic PostgreSQL query; no LLM-generated SQL.
+- `query_financial_intent()`: top-level entry point called by `handle_financial`.
 
-### 3) Production Hardening (Recommended)
-- Add telemetry/monitoring specifically for per-intent success and fallback rates.
-- Add regression suite for common STT artifacts on financial terms.
-- Add intent confusion tests for 2 vs 3 boundary cases.
+Source provenance is tracked per metric (`financial_report`, `derived`, `external_market`).
+External market metrics (P/E, dividend yield) include a note in the Jarvis response.
 
----
+### 7) Intent 2 Test Coverage
+- 37 tests in `src/backend/tests/test_financial_query.py`.
+- Covers: MetricSpec catalog, `resolve_ticker`, `resolve_metric`, `parse_fiscal_year`, `lookup_financial_metric`, `query_financial_intent`, `handle_financial` Jarvis output shape.
+- All tests run without a live database.
 
-## Suggested Next Completion Tasks (Intent 2)
-1. Implement `handle_financial` with real backend data query path.
-2. Add metric and time-period parser utilities.
-3. Return structured response with sources + confidence.
-4. Add unit + integration tests for financial queries.
-5. Update Jarvis docs after feature completion to mark Intent 2 as fully supported.
+### 8) Docs Updated for Intent 2
+- `docs/ai-systems/jarvis-intent-classifier.md`: Intent 2 entity extraction rules, supported metric table, ambiguity behavior, three new few-shot examples.
+- `docs/ai-systems/jarvis-architecture.md`: Intent 2 retrieval lane diagram, retrieval lane comparison table, updated component map.
+- `docs/backend/fastapi-architecture.md`: `financial_query` service documented, project structure updated, configuration table expanded.
+- `docs/backend/database-schema.md`: source provenance section, new company/metric onboarding procedures.
+- `docs/api-reference/endpoints.md`: Jarvis voice API and RAG endpoint documentation added, ticker list expansion note.
+- `docs/system-design/data-quality.md`: new company/metric onboarding checklists, source provenance rules, validation rules filled in.
 
 ---
 
 ## Current Overall Status
-- Jarvis architecture and most intent routing are implemented.
-- **Main remaining gap: Intent 2 (FinancialInfo) extension is not complete yet.**
+- Jarvis architecture and all six intent branches are implemented.
+- **Intent 2 (FinancialInfo) is now fully supported** with PostgreSQL retrieval, metric catalog, and 37 tests.
+- Future work: Phase B query types (comparisons, multi-year trends); Phase C Elasticsearch for qualitative phrase search and live top-5 suggestions.
 

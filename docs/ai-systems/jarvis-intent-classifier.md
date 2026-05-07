@@ -112,6 +112,44 @@ Because structured output is enforced at runtime, a separate JSON-parser node is
 }
 ```
 
+### Example 2b — Financial Information (revenue + explicit year)
+**Input:** `"what is the revenue of MAYBANK in 2024"`
+
+```json
+{
+  "refined_text": "What is the revenue of MAYBANK in 2024?",
+  "intent_id": 2,
+  "intent_name": "FinancialInfo",
+  "confidence": 0.99,
+  "entities": {
+    "company": "MAYBANK",
+    "metric": "revenue",
+    "time_period": "2024",
+    "navigation_target": null
+  },
+  "reasoning": "Revenue (financial metric) requested for a specific company and fiscal year."
+}
+```
+
+### Example 2c — Financial Information (metric only, no year)
+**Input:** `"show me CIMB's free cash flow"`
+
+```json
+{
+  "refined_text": "Show me CIMB's free cash flow.",
+  "intent_id": 2,
+  "intent_name": "FinancialInfo",
+  "confidence": 0.97,
+  "entities": {
+    "company": "CIMB",
+    "metric": "free cash flow",
+    "time_period": null,
+    "navigation_target": null
+  },
+  "reasoning": "Specific financial metric (free cash flow) requested for a named company; no time period mentioned."
+}
+```
+
 ### Example 3 — Company Information
 **Input:** `"tell me about petronas"`
 
@@ -227,6 +265,51 @@ Rules:
 
 Input transcript: {{raw_transcript}}
 ```
+
+---
+
+## Intent 2 Entity Extraction Rules
+
+The classifier extracts three entities for `FinancialInfo` queries:
+
+| Entity | Description | Examples |
+|---|---|---|
+| `company` | Company name as UPPERCASE ticker | `MAYBANK`, `CIMB`, `TNB` |
+| `metric` | Financial metric as spoken | `P/E ratio`, `revenue`, `free cash flow` |
+| `time_period` | Time reference as spoken | `2024`, `last year`, `FY2023`, `Q3 2024` |
+
+### Entity normalisation (backend)
+
+After classification, `handle_financial` resolves the raw entity text using `financial_query.py`:
+
+- **Company** → `resolve_ticker()` maps aliases like `"Malayan Banking"` or `"tenaga"` to `MAYBANK` / `TNB`.
+- **Metric** → `resolve_metric()` maps phrases like `"earnings per share"` or `"FCF"` to a `MetricSpec` in the metric catalog.
+- **Time period** → `parse_fiscal_year()` converts `"last year"`, `"FY2024"`, `"Q3 2024"`, or `None` to an integer fiscal year (or `None` for latest available).
+
+### Supported metric examples
+
+| User phrase | Maps to | Source type |
+|---|---|---|
+| revenue, sales, turnover | `income_statement.revenue_bln` | financial_report |
+| net income, net profit, PAT | `income_statement.net_income_bln` | financial_report |
+| EPS, earnings per share | `income_statement.eps` | financial_report |
+| gross margin | `income_statement.gross_margin_pct` | derived |
+| net margin, profit margin | `income_statement.net_margin_pct` | derived |
+| free cash flow, FCF | `cash_flow.free_cash_flow_bln` | financial_report |
+| capex, capital expenditure | `cash_flow.capital_expenditure_bln` | financial_report |
+| total assets | `balance_sheet.total_assets_bln` | financial_report |
+| debt to equity, D/E ratio | `kpi_summaries.debt_to_equity` | derived |
+| P/E ratio, price to earnings | `kpi_summaries.pe_ratio` | external_market |
+| ROE, return on equity | `kpi_summaries.roe_pct` | derived |
+| dividend yield | `kpi_summaries.dividend_yield_pct` | external_market |
+
+### Ambiguity behaviour
+
+- **Unknown company** — Jarvis responds: "I couldn't identify X as a company. Please specify a company by its full name or ticker."
+- **Unknown metric** — Jarvis responds: "I couldn't map X to a supported financial metric. Try asking for revenue, net income, P/E ratio, EPS, ROE, or free cash flow."
+- **Data not available** (e.g. PETRONAS P/E) — Jarvis responds: "X's P/E ratio for FY2024 is not available."
+- **No fiscal year given** — Jarvis returns the most recent available year.
+- **External market metrics** — Response includes a note: "(Note: this figure is based on Market Data and may not reflect live market data.)"
 
 ---
 

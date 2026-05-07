@@ -264,17 +264,32 @@ def handle_navigation(state: JarvisState) -> dict:
 
 
 def handle_financial(state: JarvisState) -> dict:
-    """Placeholder — Financial data retrieval (Phase 3)."""
+    """Retrieve a financial metric from PostgreSQL (Intent 2 — FinancialInfo).
+
+    Entity resolution, metric catalog lookup, fiscal-year parsing, and database
+    query are all delegated to financial_query.query_financial_intent so that
+    this node stays a thin orchestration wrapper.
+    """
+    from services.financial_query import query_financial_intent
+
     company = state["entities"].get("company") or ""
-    metric = state["entities"].get("metric") or ""
+    metric_text = state["entities"].get("metric") or ""
+    time_period = state["entities"].get("time_period") or None
+
+    result = query_financial_intent(
+        company=company or None,
+        metric_text=metric_text or None,
+        time_period=time_period,
+    )
+
     output = {
         "action": "respond",
         "target": None,
-        "message": f"Financial data retrieval is coming soon. You asked about: {metric} for {company}.".strip(),
-        "voice": "Financial data search is coming soon.",
+        "message": result["message"],
+        "voice": result["voice"],
         "intent_id": 2,
         "refined_transcript": state["refined_text"],
-        "sources": [],
+        "sources": result["sources"],
         "confidence": state["confidence"],
         "engine": "langgraph",
     }

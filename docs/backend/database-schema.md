@@ -245,3 +245,51 @@ CREATE INDEX ON document_chunks
 USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 ```
+
+---
+
+## Source Provenance
+
+The existing financial data has three source types, which are encoded in the `MetricSpec.source_type` field of `services/financial_query.py`:
+
+| Source type | Meaning | Examples |
+|---|---|---|
+| `financial_report` | Value extracted directly from the annual report | revenue, net income, EPS, total assets, cash flow |
+| `derived` | Computed ratio using two report values | gross margin, ROE, debt-to-equity, ROACE |
+| `external_market` | Requires live stock price — cannot be extracted from the report alone | P/E ratio, dividend yield |
+
+Jarvis Intent 2 surfaces the source type in its response for `external_market` metrics so users know the figure may not reflect live market data.
+
+---
+
+## Onboarding New Companies
+
+Adding a new KLSE company requires:
+
+1. Insert a row into `companies` with all profile fields (`ticker`, `name`, `sector`, `industry`, `description`, `currency`, `exchange`).
+2. Insert rows into all applicable financial tables for each available fiscal year:
+   - `income_statements` — revenue, gross profit, operating income, net income, EPS, margins
+   - `balance_sheets` — total assets, liabilities, equity, cash, debt
+   - `cash_flows` — operating cash flow, capex, free cash flow, dividends paid
+   - `kpi_summaries` — summary KPIs including P/E and dividend yield if available
+   - `qualitative_insights` (optional) — future outlook text and key strategic events
+3. Add the company ticker and any common spoken aliases to `COMPANY_ALIASES` in `services/financial_query.py`.
+4. No migration is needed if the new company fits the existing schema.
+
+---
+
+## Onboarding New Financial Metrics
+
+Adding a new metric type requires:
+
+1. **Stored value in an existing table** — add the column via an Alembic migration:
+   ```bash
+   cd src/backend
+   alembic revision --autogenerate -m "add_new_metric_column"
+   alembic upgrade head
+   ```
+2. **New domain (e.g. live stock price)** — add a new table rather than overloading `kpi_summaries`.
+3. Add one `MetricSpec` to `METRIC_CATALOG` in `services/financial_query.py`, then add all aliases to `_ALIAS_TO_METRIC`.
+4. Update `src/backend/data/mock_data.py` with seed values if applicable.
+5. Add tests to `tests/test_financial_query.py` covering the new metric aliases and value formatting.
+6. Update `docs/backend/database-schema.md` and `docs/api-reference/endpoints.md` after the change is live.
