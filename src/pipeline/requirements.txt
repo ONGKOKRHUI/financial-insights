@@ -34,3 +34,9 @@ requests>=2.31.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
+
+# ── Phase 5: Elasticsearch RAG ────────────────────────────────────────────────
+elasticsearch>=8.13.0,<9.0.0 # ES client; pin <9 for ES 8.x clusters
+markdown-it-py>=3.0.0    # Markdown parsing (headings, code fences, frontmatter)
+PyYAML>=6.0.0            # YAML frontmatter parsing for Obsidian notes
+

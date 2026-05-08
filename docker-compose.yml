@@ -1,4 +1,21 @@
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -25,12 +42,34 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finsight
+      ELASTICSEARCH_URL: http://elasticsearch:9200
       ALLOWED_ORIGINS: "http://localhost:3000"
     volumes:
       - whisper_cache:/root/.cache/whisper
+      - ./docs:/app/docs:ro
+      - ./frontend/src/app/api-docs:/app/frontend/src/app/api-docs:ro
     depends_on:
       postgres:
         condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
+  doc-ingest:
+    build:
+      context: ./src/pipeline
+      dockerfile: Dockerfile.doc-ingest
+    env_file:
+      - .env
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_DOCS_INDEX: finsight_docs_current
+      RAG_INCLUDE_TSX: "1"
+    volumes:
+      - ./frontend/src/app/api-docs:/app/frontend/src/app/api-docs:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
 
   frontend:
     build:
@@ -49,3 +88,4 @@ services:
 volumes:
   postgres_data:
   whisper_cache:
+  es_data:

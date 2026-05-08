@@ -16,7 +16,9 @@ src/backend/
 ├── database.py           # SQLAlchemy engine, SessionLocal, get_db dependency
 ├── models.py             # ORM models (Company, KPISummary, IncomeStatement, BalanceSheet,
 │                         #   CashFlow, QualitativeInsight, User, RefreshToken, APIKey)
-├── schemas.py            # Pydantic request/response schemas
+├── schemas/              # Pydantic request/response schemas (modular by domain)
+│   ├── __init__.py       # Re-exports legacy schemas for backwards compatibility
+│   └── rag.py            # RAG-specific request/response schemas
 ├── seed.py               # Idempotent seeder — populates all tables from mock_data on startup
 ├── requirements.txt      # Runtime dependencies
 ├── requirements-whisper.txt  # Optional Whisper ASR dependencies
@@ -40,17 +42,27 @@ src/backend/
 │   ├── admin.py          # GET/PATCH/DELETE /admin/users (admin-only)
 │   ├── companies.py      # GET /companies, /companies/{ticker}, /companies/{ticker}/summary|qualitative
 │   ├── financials.py     # GET /financials/{ticker}/income-statement|balance-sheet|cash-flow
-│   ├── search.py         # POST /search (unified query, requires paid/admin)
-│   ├── jarvis.py         # Jarvis voice endpoints: /intent/stream, /voice/stream, /voice, /speak, /health
+│   ├── search.py         # GET /search/live, POST /search (unified query, requires paid/admin)
+│   ├── jarvis.py         # Jarvis voice endpoints: /intent/stream, /voice/stream, /tts, /health
+│   ├── rag.py            # POST /rag/ask, GET /rag/health (Elasticsearch RAG)
 │   └── webhooks.py       # POST /webhooks/stripe (Stripe subscription lifecycle)
 ├── services/
-│   ├── asr.py            # Speech-to-text (Whisper local or Gemini API)
-│   ├── jarvis_intent.py  # Intent classification (keyword, LangGraph, or Dify)
-│   ├── langgraph_intent.py  # Full LangGraph NLU pipeline
-│   └── tts.py            # Text-to-speech (Edge TTS or Google Cloud)
+│   ├── jarvis_intent.py      # Intent engine dispatcher (keyword / langgraph)
+│   ├── langgraph_intent.py   # Full LangGraph pipeline: 6 intent nodes
+│   ├── financial_query.py    # Intent 2: metric catalog + PostgreSQL lookup
+│   ├── rag_retriever.py      # Intent 4: Elasticsearch BM25 + KNN retrieval
+│   ├── rag_answer.py         # Intent 4: Gemini grounded answer generation
+│   ├── es_client.py          # Shared Elasticsearch client
+│   ├── es_docs_index.py      # Elasticsearch index + alias bootstrap (v2 adds autocomplete fields)
+│   ├── live_search.py        # Search-as-you-type: lightweight BM25 over autocomplete sub-fields
+│   ├── embeddings.py         # Shared embedding client (Gemini)
+│   ├── asr.py                # ASR engine (faster-whisper / Gemini Audio)
+│   └── tts.py                # Text-to-speech (edge-tts / Google Cloud TTS)
 └── tests/
-    ├── conftest.py       # SQLite fixtures, dependency override, session-scoped TestClient
-    └── test_api.py       # 13 tests covering company and financial endpoints
+    ├── conftest.py              # SQLite fixtures, dependency override, session-scoped TestClient
+    ├── test_api.py              # Core API endpoint tests
+    ├── test_rag.py              # RAG endpoint tests (mocked ES + LLM)
+    └── test_financial_query.py  # Intent 2 unit + integration tests
 ```
 
 ---
@@ -90,16 +102,38 @@ Authentication is enforced at the dependency level (not middleware) via `get_cur
 
 ## Routers
 
-| Router         | Prefix         | Methods        | Auth Required  | Endpoints                                                      |
-|----------------|----------------|----------------|----------------|----------------------------------------------------------------|
-| `auth`         | `/auth`        | POST           | No (public)    | register, login, refresh, logout                               |
-| `users`        | `/users`       | GET, POST      | Session cookie | profile (`GET /me`), API key info (`GET /me/api-key`), rotate (`POST /me/api-key/rotate`) |
-| `admin`        | `/admin`       | GET, PATCH, DELETE | Admin role | user list, update role/status, delete user                     |
-| `companies`    | `/companies`   | GET            | No (public)    | list, detail, KPI summary, qualitative insight                 |
-| `financials`   | `/financials`  | GET            | No (public)    | income statement, balance sheet, cash flow (per ticker)        |
-| `search`       | `/search`      | POST           | Paid/Admin     | unified payload-based query across all statement types         |
-| `jarvis`       | `/api/jarvis`  | POST, GET      | No             | `intent/stream`, `voice/stream`, `voice`, `speak`, `health`   |
-| `webhooks`     | `/webhooks`    | POST           | Stripe signature | Stripe subscription lifecycle events                         |
+| Router         | Prefix           | Methods            | Auth Required    | Endpoints                                                                 |
+|----------------|------------------|--------------------|------------------|---------------------------------------------------------------------------|
+| `auth`         | `/auth`          | POST               | No (public)      | register, login, refresh, logout                                          |
+| `users`        | `/users`         | GET, POST          | Session cookie   | profile (`GET /me`), API key info (`GET /me/api-key`), rotate (`POST /me/api-key/rotate`) |
+| `admin`        | `/admin`         | GET, PATCH, DELETE | Admin role       | user list, update role/status, delete user                                |
+| `companies`    | `/companies`     | GET                | No (public)      | list, detail, KPI summary, qualitative insight                            |
+| `financials`   | `/financials`    | GET                | No (public)      | income statement, balance sheet, cash flow (per ticker)                   |
+| `search`       | `/search`        | GET / POST         | Paid/Admin       | `GET /search/live?q=` — live Elasticsearch suggestions (top 5); `POST /search` — unified payload-based query |
+| `jarvis`       | `/api/jarvis`    | POST, GET          | No               | `/intent/stream`, `/voice/stream`, `/tts`, `health`                       |
+| `rag`          | `/rag`           | POST / GET         | No               | `/ask` (NL question answering), `/health` — Elasticsearch RAG             |
+| `webhooks`     | `/webhooks`      | POST               | Stripe signature | Stripe subscription lifecycle events                                      |
+
+Routers that query the database use `Depends(get_db)` for session injection.
+Protected routers additionally use `Depends(get_current_user)` and/or `Depends(require_role(...))`.
+
+### financial_query service
+
+`services/financial_query.py` is an internal service used by the Jarvis `handle_financial` node. It is **not a router** — it is called directly from `langgraph_intent.py` without going through an HTTP endpoint.
+
+Its responsibilities:
+
+| Function | Description |
+|---|---|
+| `resolve_ticker(company)` | Normalises a company name to a canonical KLSE ticker using a static alias map + DB fallback |
+| `resolve_metric(metric_text)` | Maps natural-language metric phrases to a `MetricSpec` in the metric catalog |
+| `parse_fiscal_year(time_period)` | Parses relative/absolute time references to an integer year or `None` (latest) |
+| `lookup_financial_metric(ticker, spec, fy)` | Queries the correct SQLAlchemy model using `MetricSpec.statement_type` and returns a `FinancialQueryResult` |
+| `query_financial_intent(company, metric, time_period)` | Top-level entry point for `handle_financial` — orchestrates the four functions above |
+
+**Adding a new company** only requires updating `COMPANY_ALIASES` and inserting matching rows into the database. No handler code changes.
+
+**Adding a new metric** requires appending one `MetricSpec` to `METRIC_CATALOG` (and adding the aliases to `_ALIAS_TO_METRIC`) plus an Alembic migration if a new column is needed.
 
 All data routers use `Depends(get_db)` for database session injection.
 Protected routers additionally use `Depends(get_current_user)` and/or `Depends(require_role(...))`.
@@ -166,20 +200,26 @@ automatically converted to `postgresql://` for SQLAlchemy compatibility.
 
 All configuration is via environment variables:
 
-| Variable           | Default                                | Description                             |
-|--------------------|----------------------------------------|-----------------------------------------|
-| `DATABASE_URL`     | `postgresql://postgres:postgres@localhost:5432/finsight` | PostgreSQL connection string |
-| `ALLOWED_ORIGINS`  | `http://localhost:3000`                | Comma-separated CORS allowed origins    |
-| `SECRET_KEY`       | *(required)*                           | JWT signing secret (HS256)              |
-| `ALGORITHM`        | `HS256`                                | JWT algorithm                           |
-| `COOKIE_SECURE`    | `true`                                 | Set to `false` for local HTTP dev       |
-| `STRIPE_SECRET_KEY`| *(required for payments)*              | Stripe API secret key                   |
-| `STRIPE_WEBHOOK_SECRET` | *(required for webhooks)*         | Stripe webhook signing secret           |
-| `STRIPE_PRO_PRICE_ID` | *(required for checkout)*           | Stripe Price ID for Pro plan            |
-| `JARVIS_ASR_ENGINE`| `whisper`                              | ASR engine: `whisper` or `gemini`       |
-| `JARVIS_INTENT_ENGINE` | `langgraph`                        | Intent engine: `keyword`, `langgraph`, or `dify` |
-| `JARVIS_TTS_ENGINE`| `edge`                                 | TTS engine: `edge` or `google`          |
-| `GOOGLE_API_KEY`   | *(required for Gemini)*                | Google AI API key                       |
+| Variable                          | Default                                                    | Description                                               |
+|-----------------------------------|------------------------------------------------------------|-----------------------------------------------------------|
+| `DATABASE_URL`                    | `postgresql://postgres:postgres@localhost:5432/finsight`   | PostgreSQL connection string                              |
+| `ALLOWED_ORIGINS`                 | `http://localhost:3000`                                    | Comma-separated CORS allowed origins                      |
+| `SECRET_KEY`                      | *(required)*                                               | JWT signing secret (HS256)                                |
+| `ALGORITHM`                       | `HS256`                                                    | JWT algorithm                                             |
+| `COOKIE_SECURE`                   | `true`                                                     | Set to `false` for local HTTP dev                         |
+| `STRIPE_SECRET_KEY`               | *(required for payments)*                                  | Stripe API secret key                                     |
+| `STRIPE_WEBHOOK_SECRET`           | *(required for webhooks)*                                  | Stripe webhook signing secret                             |
+| `STRIPE_PRO_PRICE_ID`             | *(required for checkout)*                                  | Stripe Price ID for Pro plan                              |
+| `GOOGLE_API_KEY`                  | *(required for Gemini)*                                    | Google AI API key — required for LangGraph + Gemini ASR   |
+| `JARVIS_ASR_ENGINE`               | `whisper`                                                  | ASR engine: `whisper` or `gemini`                         |
+| `JARVIS_INTENT_ENGINE`            | `langgraph`                                                | Intent engine: `keyword`, `langgraph`, or `dify`          |
+| `JARVIS_GEMINI_MODEL`             | `gemini-2.0-flash`                                         | Override Gemini model for Jarvis (fallback: `GEMINI_MODEL`) |
+| `JARVIS_TTS_ENGINE`               | `edge`                                                     | TTS engine: `edge` or `google`                            |
+| `ELASTICSEARCH_URL`               | `http://localhost:9200`                                    | Elasticsearch host for RAG and live search                |
+| `ELASTICSEARCH_DOCS_INDEX`        | `finsight_docs_current`                                    | Elasticsearch alias for RAG docs index and live search    |
+| `ELASTICSEARCH_DOCS_INDEX_VERSION`| `v2`                                                       | Physical index version (`v2` adds autocomplete sub-fields) |
+| `RAG_EMBEDDING_MODEL`             | `models/gemini-embedding-001`                              | Gemini embedding model for RAG                            |
+| `LIVE_SEARCH_SNIPPET_CHARS`       | `160`                                                      | Maximum characters per result snippet in `GET /search/live` |
 
 Production values are set in the Render dashboard. Local development values live
 in `.env` (see `.env.example`).
@@ -195,3 +235,5 @@ FastAPI's default exception handlers are used:
 - Unhandled exceptions → HTTP 500
 
 Auth endpoints return descriptive error messages via `HTTPException(status_code=401, detail="...")`.
+
+The `financial_query` service and LangGraph intent handlers never raise HTTP exceptions — they return graceful fallback responses so Jarvis always returns a user-facing message even when data is unavailable.

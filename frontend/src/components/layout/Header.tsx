@@ -23,11 +23,9 @@
  */
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { useAuthStore, type UserRole } from "@/stores/authStore";
 import { useLogout } from "@/hooks/useAuth";
-import { useSearchStore } from "@/stores/searchStore";
+import LiveSearchBox from "@/components/search/LiveSearchBox";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -61,23 +59,11 @@ const ROLE_LABEL: Record<UserRole, string> = {
 // ---------------------------------------------------------------------------
 
 export default function Header() {
-  const router = useRouter();
-  const { setQuery } = useSearchStore();
   const { user, isHydrating } = useAuthStore();
   const logout = useLogout();
-  const [inputValue, setInputValue] = useState("");
 
   const isAuthenticated = !!user;
   const role = user?.role ?? "free";
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = inputValue.trim().toUpperCase();
-    if (!trimmed) return;
-    setQuery(trimmed);
-    router.push(`/companies/${trimmed}`);
-    setInputValue("");
-  }
 
   function handleLogout() {
     logout.mutate();
@@ -124,24 +110,8 @@ export default function Header() {
 
         {/* ── Right side ───────────────────────────────────── */}
         <div className="flex items-center gap-3">
-          {/* Ticker search — authenticated only */}
-          {isAuthenticated && (
-            <form onSubmit={handleSearch} className="hidden sm:flex items-center gap-2">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Search ticker…"
-                className="h-9 w-36 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 lg:w-48"
-              />
-              <button
-                type="submit"
-                className="h-9 rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
-              >
-                Search
-              </button>
-            </form>
-          )}
+          {/* Live search — authenticated only */}
+          {isAuthenticated && <LiveSearchBox />}
 
           {/* Auth state: hydrating skeleton */}
           {isHydrating && (

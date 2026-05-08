@@ -1,58 +1,110 @@
 # Data Pipeline Architecture
 
 !!! success "Current MVP"
-    The current pipeline covers automated PDF download, PyMuPDF parsing, data cleaning, and PostgreSQL ingestion orchestrated via Airflow or Prefect.
+    The platform currently runs two production-oriented pipelines:
+    1) financial PDF ingestion into PostgreSQL, and
+    2) documentation ingestion into Elasticsearch for RAG.
 
 ---
 
 ## Pipeline Overview
 
 ```mermaid
-flowchart LR
-    A[Scheduled Trigger] --> B[Scraper]
-    B -->|PDF files| C[PDF Parser]
-    C -->|Raw JSON| D[Data Cleaner]
-    D -->|Clean JSON| E[Postgres Loader]
-    E --> F[(PostgreSQL)]
-    F -->|Text chunks| G[Embedding Generator]
-    G -->|Vectors| H[(pgvector)]
+flowchart TD
+    subgraph Financial ETL
+      A[Scheduled Trigger] --> B[Scraper]
+      B --> C[PDF Parser]
+      C --> D[Data Cleaner]
+      D --> E[Postgres Loader]
+      E --> F[(PostgreSQL)]
+    end
+
+    subgraph Docs RAG Ingestion
+      G[discover_files] --> H[parse_markdown / parse_tsx]
+      H --> I[chunk_sections]
+      I --> J[embed_chunks]
+      J --> K[upsert_elasticsearch]
+      K --> L[(Elasticsearch docs index)]
+    end
 ```
 
 ---
 
-## Stages
+## Financial ETL Stages
 
 ### Stage 1 — Scraping
 
-<!-- Describe scraping targets, trigger schedule, storage of raw PDFs -->
+Collects annual/quarterly disclosures from supported Malaysian companies.
 
 ### Stage 2 — PDF Parsing
 
-<!-- Describe PyMuPDF extraction: text, tables, metadata; output JSON schema -->
+Extracts raw text/tables and section-level metadata from source PDFs.
 
 ### Stage 3 — Data Cleaning
 
-<!-- Describe noise removal, financial table normalization, schema mapping -->
+Normalizes parsed content into consistent financial schemas.
 
 ### Stage 4 — Database Ingestion
 
-<!-- Describe upsert logic, deduplication, data versioning -->
+Performs idempotent loads into PostgreSQL tables consumed by API endpoints.
 
-### Stage 5 — Embedding Generation
+---
 
-!!! info "Planned Architecture (Future Phases)"
-    Embedding generation and pgvector indexing is implemented in Phase 3.
+## Documentation RAG Ingestion Stages (Implemented)
 
-<!-- Describe chunking strategy, embedding model, pgvector index creation -->
+### Stage 1 — Discover Files
+
+`src/pipeline/nodes/doc_loader.py` recursively discovers:
+- Markdown docs (`*.md`)
+- API docs TSX page (`*/api-docs/page.tsx`) when enabled
+
+### Stage 2 — Parse to Structured Sections
+
+`src/pipeline/nodes/doc_parser.py` parses:
+- Frontmatter (YAML)
+- Heading hierarchies
+- Obsidian links/tags
+- API docs endpoint metadata extracted from TSX
+
+### Stage 3 — Chunk Sections
+
+`src/pipeline/nodes/doc_chunker.py` creates bounded chunks with overlap and stable IDs, then enriches each chunk with metadata and contextual prefixes.
+
+### Stage 4 — Embed Chunks
+
+`src/pipeline/nodes/doc_embedder.py` generates dense vectors using Gemini embedding models with batching and retry handling.
+
+### Stage 5 — Upsert to Elasticsearch
+
+`src/pipeline/nodes/doc_indexer.py` bulk-indexes chunks into the docs alias, skipping unchanged chunks by comparing `content_hash`.
+
+---
+
+## Pipeline Entry Point
+
+Run the docs ingestion graph from CLI:
+
+```bash
+python -m pipeline.doc_graph --docs ./docs
+```
+
+Useful options:
+- `--dry-run` to validate discovery/parsing/chunking without ES writes
+- `--no-embed` to skip embedding and test non-vector flow
 
 ---
 
 ## Orchestration
 
-<!-- Describe DAG design in Airflow/Prefect, retry strategy, alerting on failure -->
+Financial ETL orchestration remains scheduler-driven.  
+Docs ingestion currently runs via CLI/manual trigger and is designed to be schedulable in the same orchestration layer.
 
 ---
 
 ## Output Schema
 
-<!-- Document the PostgreSQL table schemas produced by this pipeline -->
+- Financial ETL outputs normalized relational records in PostgreSQL.
+- Docs ingestion outputs chunked documents in Elasticsearch with:
+  - source metadata (`source_path`, `doc_type`, `domain`, `ticker`)
+  - lineage metadata (`doc_id`, `chunk_id`, previous/next chunk links)
+  - retrieval fields (`content`, `content_vector`, `tags`, `heading_path`)

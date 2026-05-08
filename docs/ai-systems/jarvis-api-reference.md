@@ -36,7 +36,7 @@ Body:
 
 | Event | Data | Timing |
 |-------|------|--------|
-| `response` | Full intent JSON | ~100ms (keyword) or ~1.5s (Dify) |
+| `response` | Full intent JSON | ~100ms (keyword) or ~1.5s (LangGraph) |
 | `error` | `{ "message": "..." }` | On failure |
 | `done` | `{}` | Always last |
 
@@ -161,7 +161,7 @@ Events are pushed in this order:
 | Event | Data | Timing |
 |-------|------|--------|
 | `transcript` | `{ "text": "..." }` | Immediately after ASR (~0.5–2s) |
-| `response` | Full intent JSON (see below) | After Dify classification (~2–5s total) |
+| `response` | Full intent JSON (see below) | After LangGraph classification (~2–5s total) |
 | `error` | `{ "message": "..." }` | On any failure |
 | `done` | `{}` | Always last |
 
@@ -266,11 +266,12 @@ Returns the current engine configuration for quick diagnostics.
 ```json
 {
   "status": "ok",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "asr_engine": "gemini",
-  "intent_engine": "dify",
+  "intent_engine": "langgraph",
   "tts_engine": "edge",
-  "streaming": true
+  "primary_path": "web-speech-api → /intent/stream",
+  "fallback_path": "audio-upload → /voice/stream"
 }
 ```
 
@@ -294,7 +295,7 @@ curl http://localhost:8000/api/jarvis/health
 | `intent_id` | int? | 1–6 (see Intent Definitions) |
 | `transcript` | string | What Jarvis heard |
 | `confidence` | float? | Classifier confidence (0.0–1.0) |
-| `engine` | string? | Which engine handled intent (`keyword` or `dify`) |
+| `engine` | string? | Which engine handled intent (`keyword`, `langgraph`, or `dify`) |
 
 ---
 
@@ -305,7 +306,8 @@ curl http://localhost:8000/api/jarvis/health
 | `JARVIS_ASR_ENGINE` | `gemini` | `whisper` or `gemini` |
 | `JARVIS_WHISPER_MODEL` | `large-v3` | Whisper model size |
 | `JARVIS_GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model for ASR |
-| `JARVIS_INTENT_ENGINE` | `keyword` | `keyword` or `dify` |
+| `JARVIS_INTENT_ENGINE` | `keyword` | `keyword`, `langgraph`, or `dify` |
+| `GOOGLE_API_KEY` | — | Required for `langgraph` and Gemini ASR |
 | `JARVIS_DIFY_API_URL` | — | Dify Cloud workflow URL |
 | `JARVIS_DIFY_API_KEY` | — | Dify Cloud API key (`app-...`) |
 | `JARVIS_DIFY_TIMEOUT` | `15` | Seconds before Dify fallback |

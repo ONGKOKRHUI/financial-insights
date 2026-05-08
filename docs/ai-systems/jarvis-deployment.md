@@ -8,14 +8,13 @@ Copy `.env.example` to `.env` and configure:
 cp .env.example .env
 ```
 
-### Minimum variables for Jarvis (production - Gemini ASR)
+### Minimum variables for Jarvis (production - Gemini ASR + LangGraph intent)
 
 ```bash
 GOOGLE_API_KEY=AIzaSy...         # Gemini API key — also used for ASR
 JARVIS_ASR_ENGINE=gemini
-JARVIS_INTENT_ENGINE=dify
-JARVIS_DIFY_API_URL=https://api.dify.ai/v1/workflows/run
-JARVIS_DIFY_API_KEY=app-...
+JARVIS_GEMINI_MODEL=gemini-2.0-flash
+JARVIS_INTENT_ENGINE=langgraph
 JARVIS_TTS_ENGINE=edge
 JARVIS_TTS_VOICE=en-US-AriaNeural
 ```
@@ -25,7 +24,7 @@ JARVIS_TTS_VOICE=en-US-AriaNeural
 ```bash
 JARVIS_ASR_ENGINE=whisper
 JARVIS_WHISPER_MODEL=large-v3
-JARVIS_INTENT_ENGINE=keyword     # No Dify needed for local dev
+JARVIS_INTENT_ENGINE=langgraph   # Uses Gemini API; falls back to keyword if key is invalid
 JARVIS_TTS_ENGINE=edge
 ```
 
@@ -113,9 +112,8 @@ npm run dev
 | `ALLOWED_ORIGINS` | `https://your-app.vercel.app` |
 | `GOOGLE_API_KEY` | Your Gemini API key |
 | `JARVIS_ASR_ENGINE` | `gemini` |
-| `JARVIS_INTENT_ENGINE` | `dify` |
-| `JARVIS_DIFY_API_URL` | `https://api.dify.ai/v1/workflows/run` |
-| `JARVIS_DIFY_API_KEY` | `app-...` |
+| `JARVIS_GEMINI_MODEL` | `gemini-2.0-flash` |
+| `JARVIS_INTENT_ENGINE` | `langgraph` |
 | `JARVIS_TTS_ENGINE` | `edge` |
 
 ### Frontend on Vercel
@@ -129,7 +127,7 @@ npm run dev
 
 ---
 
-## Dify Cloud — Workflow Setup
+## Dify Cloud — Workflow Setup (Legacy)
 
 !!! important "Manual setup required"
     The Dify workflow cannot be provisioned automatically. You must create it once in the Dify Cloud dashboard.
@@ -206,7 +204,11 @@ pip install setuptools
 pip install -r requirements-whisper.txt --no-build-isolation
 ```
 
-### Dify returning 401
+### LangGraph falls back to keyword unexpectedly
+
+Check that `GOOGLE_API_KEY` is valid for the Generative Language API. If invalid, Jarvis logs an API key warning and falls back to the keyword engine.
+
+### Dify returning 401 (legacy engine only)
 
 Check that `JARVIS_DIFY_API_KEY` starts with `app-` (not `user-`). Use the **Workflow** API key, not a user key.
 

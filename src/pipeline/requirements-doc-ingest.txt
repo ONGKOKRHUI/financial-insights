@@ -1,0 +1,13 @@
+# Minimal requirements for the doc ingestion pipeline (doc_graph.py).
+# Excludes heavy deps like apache-airflow, llama-cloud, and pymupdf
+# that are only needed by the PDF / Airflow pipelines.
+
+langgraph>=0.2.0
+langchain-core>=0.3.0
+
+elasticsearch>=8.13.0,<9.0.0
+google-generativeai>=0.8.0
+
+markdown-it-py>=3.0.0
+PyYAML>=6.0.0
+python-dotenv>=1.0.0

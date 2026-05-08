@@ -1,10 +1,10 @@
-# Jarvis — Intent Classifier System Prompt
+# Jarvis — Intent Classifier (LangGraph)
 
-This is the complete system prompt used by the **Intent Classifier LLM node** in the Dify Cloud workflow. Copy this verbatim into the system prompt field of the LLM node.
+This page documents the classifier prompt and schema used by the `langgraph` intent engine in `src/backend/services/langgraph_intent.py`.
 
-!!! tip "Where to paste this"
-    In your Dify Cloud workflow → **Node 2 (Intent Classifier)** → `System Prompt` field.
-    Set the model to `gemini-1.5-pro` or `gpt-4o-mini`, enable **JSON mode**, and set temperature to `0`.
+!!! info "Current implementation"
+    Jarvis intent classification now runs in-process via LangChain + LangGraph.
+    The Dify workflow is retained as a legacy engine (`JARVIS_INTENT_ENGINE=dify`).
 
 ---
 
@@ -58,6 +58,20 @@ Extract all named entities (company names, tickers, financial terms) relevant to
 
 ---
 
+## Runtime Settings
+
+The classifier node runs with:
+
+| Setting | Value |
+|---|---|
+| Model | `JARVIS_GEMINI_MODEL` (fallback: `GEMINI_MODEL`, default: `gemini-2.0-flash`) |
+| Temperature | `0.0` |
+| Output mode | `ChatGoogleGenerativeAI.with_structured_output(IntentOutput)` |
+
+Because structured output is enforced at runtime, a separate JSON-parser node is not required in the LangGraph pipeline.
+
+---
+
 ## Few-Shot Examples
 
 ### Example 1 — Navigation (with STT artifact)
@@ -95,6 +109,44 @@ Extract all named entities (company names, tickers, financial terms) relevant to
     "navigation_target": null
   },
   "reasoning": "Specific financial metric (P/E ratio) requested for a named company and time period."
+}
+```
+
+### Example 2b — Financial Information (revenue + explicit year)
+**Input:** `"what is the revenue of MAYBANK in 2024"`
+
+```json
+{
+  "refined_text": "What is the revenue of MAYBANK in 2024?",
+  "intent_id": 2,
+  "intent_name": "FinancialInfo",
+  "confidence": 0.99,
+  "entities": {
+    "company": "MAYBANK",
+    "metric": "revenue",
+    "time_period": "2024",
+    "navigation_target": null
+  },
+  "reasoning": "Revenue (financial metric) requested for a specific company and fiscal year."
+}
+```
+
+### Example 2c — Financial Information (metric only, no year)
+**Input:** `"show me CIMB's free cash flow"`
+
+```json
+{
+  "refined_text": "Show me CIMB's free cash flow.",
+  "intent_id": 2,
+  "intent_name": "FinancialInfo",
+  "confidence": 0.97,
+  "entities": {
+    "company": "CIMB",
+    "metric": "free cash flow",
+    "time_period": null,
+    "navigation_target": null
+  },
+  "reasoning": "Specific financial metric (free cash flow) requested for a named company; no time period mentioned."
 }
 ```
 
@@ -195,7 +247,7 @@ Extract all named entities (company names, tickers, financial terms) relevant to
 
 ---
 
-## Node 1 — Transcript Refinement Prompt
+## Transcript Refinement Prompt
 
 This is the prompt for the **first** LLM node (Transcript Refinement) that runs *before* the Intent Classifier.
 
@@ -216,35 +268,52 @@ Input transcript: {{raw_transcript}}
 
 ---
 
-## Node 3 — JSON Parser Code (Python)
+## Intent 2 Entity Extraction Rules
 
-Paste this into the Dify **Code Node** (Python runtime) that validates the intent classifier output:
+The classifier extracts three entities for `FinancialInfo` queries:
 
-```python
-import json
+| Entity | Description | Examples |
+|---|---|---|
+| `company` | Company name as UPPERCASE ticker | `MAYBANK`, `CIMB`, `TNB` |
+| `metric` | Financial metric as spoken | `P/E ratio`, `revenue`, `free cash flow` |
+| `time_period` | Time reference as spoken | `2024`, `last year`, `FY2023`, `Q3 2024` |
 
-def main(raw_json: str) -> dict:
-    """Parse and validate the intent classifier JSON output.
-    Falls back to intent_id=6 (Sensitive) if parsing fails — safe default.
-    """
-    try:
-        data = json.loads(raw_json)
-        intent_id = int(data.get("intent_id", 6))
-        if intent_id not in range(1, 7):
-            intent_id = 6
-        return {
-            "intent_id": intent_id,
-            "intent_name": data.get("intent_name", "SensitiveTopic"),
-            "confidence": float(data.get("confidence", 0.0)),
-            "refined_text": str(data.get("refined_text", "")),
-            "entities": data.get("entities", {}),
-        }
-    except (json.JSONDecodeError, ValueError, TypeError):
-        return {
-            "intent_id": 6,
-            "intent_name": "SensitiveTopic",
-            "confidence": 0.0,
-            "refined_text": "",
-            "entities": {},
-        }
-```
+### Entity normalisation (backend)
+
+After classification, `handle_financial` resolves the raw entity text using `financial_query.py`:
+
+- **Company** → `resolve_ticker()` maps aliases like `"Malayan Banking"` or `"tenaga"` to `MAYBANK` / `TNB`.
+- **Metric** → `resolve_metric()` maps phrases like `"earnings per share"` or `"FCF"` to a `MetricSpec` in the metric catalog.
+- **Time period** → `parse_fiscal_year()` converts `"last year"`, `"FY2024"`, `"Q3 2024"`, or `None` to an integer fiscal year (or `None` for latest available).
+
+### Supported metric examples
+
+| User phrase | Maps to | Source type |
+|---|---|---|
+| revenue, sales, turnover | `income_statement.revenue_bln` | financial_report |
+| net income, net profit, PAT | `income_statement.net_income_bln` | financial_report |
+| EPS, earnings per share | `income_statement.eps` | financial_report |
+| gross margin | `income_statement.gross_margin_pct` | derived |
+| net margin, profit margin | `income_statement.net_margin_pct` | derived |
+| free cash flow, FCF | `cash_flow.free_cash_flow_bln` | financial_report |
+| capex, capital expenditure | `cash_flow.capital_expenditure_bln` | financial_report |
+| total assets | `balance_sheet.total_assets_bln` | financial_report |
+| debt to equity, D/E ratio | `kpi_summaries.debt_to_equity` | derived |
+| P/E ratio, price to earnings | `kpi_summaries.pe_ratio` | external_market |
+| ROE, return on equity | `kpi_summaries.roe_pct` | derived |
+| dividend yield | `kpi_summaries.dividend_yield_pct` | external_market |
+
+### Ambiguity behaviour
+
+- **Unknown company** — Jarvis responds: "I couldn't identify X as a company. Please specify a company by its full name or ticker."
+- **Unknown metric** — Jarvis responds: "I couldn't map X to a supported financial metric. Try asking for revenue, net income, P/E ratio, EPS, ROE, or free cash flow."
+- **Data not available** (e.g. PETRONAS P/E) — Jarvis responds: "X's P/E ratio for FY2024 is not available."
+- **No fiscal year given** — Jarvis returns the most recent available year.
+- **External market metrics** — Response includes a note: "(Note: this figure is based on Market Data and may not reflect live market data.)"
+
+---
+
+## Legacy Dify Notes
+
+If you still run `JARVIS_INTENT_ENGINE=dify`, you can continue using this prompt in your Dify workflow.
+For new deployments, prefer `langgraph` so refinement, classification, routing, and fallback all run in backend code.
