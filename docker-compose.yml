@@ -54,6 +54,23 @@ services:
       elasticsearch:
         condition: service_healthy
 
+  doc-ingest:
+    build:
+      context: ./src/pipeline
+      dockerfile: Dockerfile.doc-ingest
+    env_file:
+      - .env
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_DOCS_INDEX: finsight_docs_current
+      RAG_INCLUDE_TSX: "1"
+    volumes:
+      - ./frontend/src/app/api-docs:/app/frontend/src/app/api-docs:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
+
   frontend:
     build:
       context: ./frontend
