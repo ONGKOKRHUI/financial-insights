@@ -54,6 +54,7 @@ frontend/src/
 │       ├── users/api-key/route.ts        # GET + POST /api/users/api-key
 │       ├── admin/users/route.ts          # GET  /api/admin/users
 │       ├── admin/users/[id]/route.ts     # PATCH + DELETE /api/admin/users/{id}
+│       ├── search/live/route.ts          # GET  /api/search/live?q= — live search BFF proxy
 │       └── stripe/checkout/route.ts      # POST /api/stripe/checkout
 ├── components/
 │   ├── charts/
@@ -70,8 +71,10 @@ frontend/src/
 │   │   ├── CompanyCard.tsx               # Company tile for listings
 │   │   ├── Skeleton.tsx                  # Loading skeleton variants
 │   │   └── Badge.tsx                     # Status / sector badge
+│   ├── search/
+│   │   └── LiveSearchBox.tsx             # Debounced Elasticsearch live search dropdown
 │   └── layout/
-│       ├── Header.tsx                    # Sticky nav — auth-aware profile + logout
+│       ├── Header.tsx                    # Sticky nav — auth-aware profile, live search, logout
 │       └── Footer.tsx                    # Site footer
 ├── hooks/
 │   ├── useCompanies.ts                   # TanStack Query: company data
@@ -155,6 +158,39 @@ sequenceDiagram
 | Paid analytics (`/dashboard/[ticker]`) | CSR | Auth-gated, dynamic data |
 | Account settings (`/account`) | CSR | Session-dependent |
 | Admin dashboard (`/admin/**`) | CSR | Real-time user data |
+
+---
+
+## Live Search
+
+### LiveSearchBox component
+
+`src/components/search/LiveSearchBox.tsx` is a self-contained, debounced typeahead
+widget rendered in the authenticated header.
+
+**Key behaviours:**
+
+| Behaviour | Detail |
+|---|---|
+| Debounce | 200 ms — no request is fired until the user pauses typing |
+| Abort | Each keypress cancels the previous in-flight `fetch` via `AbortController` |
+| Min length | Queries shorter than 2 characters after trimming return an empty list without hitting the backend |
+| Results | Always ≤ 5, ranked by Elasticsearch BM25 relevance score |
+| Keyboard | ↑ / ↓ to navigate, Enter to open, Escape to close |
+| Navigation | `source_uri` from the hit (opens in new tab for external URLs); falls back to `/companies/{ticker}` for company-domain hits |
+| Auth | Relies on the session cookie forwarded through the BFF route — no extra auth setup needed |
+
+### BFF proxy
+
+`src/app/api/search/live/route.ts` forwards `GET /api/search/live?q=...` to
+FastAPI `GET /search/live?q=...` with the browser's `Cookie` header so the
+backend `require_api_key_or_session` dependency is satisfied.  The route
+sets `cache: "no-store"` to ensure results are never stale.
+
+### API helper
+
+`api.search.live(query, signal?)` in `src/lib/api.ts` wraps the BFF route and
+accepts an optional `AbortSignal` so the component can cancel stale requests.
 
 ---
 

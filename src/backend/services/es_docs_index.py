@@ -1,6 +1,20 @@
-"""Elasticsearch docs index: versioned index + alias for RAG (shared with CLI script).
+"""Elasticsearch docs index: versioned index + alias for RAG and live search.
 
 ``ensure_docs_index`` is idempotent and safe to call on every API startup.
+
+v2 additions (live search)
+--------------------------
+- ``autocomplete_filter``: edge n-gram filter (min_gram=2, max_gram=20)
+- ``autocomplete_index`` analyzer: used at index time on title, heading_path, content sub-fields
+- ``autocomplete_search`` analyzer: used at query time (standard tokenize + lowercase, no n-gram expansion)
+- Sub-fields: ``title.autocomplete``, ``heading_path.autocomplete``, ``content.autocomplete``
+
+Upgrading from v1 → v2
+-----------------------
+The new analyzers require a new physical index.  Set ``ELASTICSEARCH_DOCS_INDEX_VERSION=v2``
+(or leave unset, the default is now v2) and either delete the old index manually or let
+``ensure_docs_index(es, reset=True)`` rebuild it.  Re-run the pipeline ingestion to
+re-populate the index with the new sub-fields.
 """
 
 from __future__ import annotations
@@ -11,17 +25,37 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-INDEX_NAME = "finsight_docs_v1"
+_INDEX_VERSION = os.getenv("ELASTICSEARCH_DOCS_INDEX_VERSION", "v2")
+INDEX_NAME = f"finsight_docs_{_INDEX_VERSION}"
 
 INDEX_SETTINGS: dict[str, Any] = {
     "number_of_shards": 1,
     "number_of_replicas": 0,
     "analysis": {
+        "filter": {
+            "autocomplete_filter": {
+                "type": "edge_ngram",
+                "min_gram": 2,
+                "max_gram": 20,
+            },
+        },
         "analyzer": {
             "english_analyzer": {
                 "type": "english",
-            }
-        }
+            },
+            # Used at *index* time: tokenise → lowercase → edge n-gram expansion
+            "autocomplete_index": {
+                "type": "custom",
+                "tokenizer": "standard",
+                "filter": ["lowercase", "autocomplete_filter"],
+            },
+            # Used at *query* time: tokenise → lowercase only (no n-gram expansion)
+            "autocomplete_search": {
+                "type": "custom",
+                "tokenizer": "standard",
+                "filter": ["lowercase"],
+            },
+        },
     },
 }
 
@@ -44,17 +78,37 @@ def _index_mappings() -> dict[str, Any]:
                 "analyzer": "english_analyzer",
                 "fields": {
                     "raw": {"type": "keyword"},
+                    # autocomplete sub-field: edge n-gram at index time, plain at query time
+                    "autocomplete": {
+                        "type": "text",
+                        "analyzer": "autocomplete_index",
+                        "search_analyzer": "autocomplete_search",
+                    },
                 },
             },
             "title": {
                 "type": "text",
                 "analyzer": "english_analyzer",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {
+                    "keyword": {"type": "keyword"},
+                    "autocomplete": {
+                        "type": "text",
+                        "analyzer": "autocomplete_index",
+                        "search_analyzer": "autocomplete_search",
+                    },
+                },
             },
             "heading_path": {
                 "type": "text",
                 "analyzer": "english_analyzer",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {
+                    "keyword": {"type": "keyword"},
+                    "autocomplete": {
+                        "type": "text",
+                        "analyzer": "autocomplete_index",
+                        "search_analyzer": "autocomplete_search",
+                    },
+                },
             },
             "tags": {
                 "type": "keyword",

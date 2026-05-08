@@ -61,6 +61,7 @@ class DocPipelineState(TypedDict):
     # Input
     doc_roots: list[str]       # directories or individual .md file paths
     dry_run: bool              # if True, skip actual ES writes
+    embed: bool                # if False, skip embedding step
 
     # After discover_files
     file_paths: list[str]

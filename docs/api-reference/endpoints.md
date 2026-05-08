@@ -247,6 +247,59 @@ Returns 5 years of annual cash flow data.
 
 ## Search
 
+### `GET /search/live`
+
+Search-as-you-type endpoint that returns the top 5 most relevant docs/page
+suggestions for a partial query string using edge n-gram BM25 over the indexed
+webpage content.  Designed for per-keystroke calls from the frontend.
+
+**Authentication** — requires a valid session cookie or `X-API-Key` header.
+
+**Query Parameters**
+
+| Parameter | Type   | Required | Description                             |
+|-----------|--------|----------|-----------------------------------------|
+| `q`       | string | yes      | Partial search query (2–200 characters) |
+
+**Example Request**
+
+```bash
+curl -H "X-API-Key: your_api_key" \
+  "https://finsight-api.onrender.com/search/live?q=jarvis"
+```
+
+**Response** — `LiveSearchResponse`
+
+```json
+{
+  "query": "jarvis",
+  "total": 3,
+  "hits": [
+    {
+      "rank": 1,
+      "title": "Jarvis Voice Assistant Overview",
+      "snippet": "Hands-free navigation by voice using Gemini ASR and the browser Web Speech API.",
+      "source_path": "docs/ai-systems/jarvis-overview.md",
+      "source_uri": "https://finsight.dev/ai-systems/jarvis-overview/",
+      "score": 1.403281,
+      "doc_type": "project_doc",
+      "domain": "platform",
+      "ticker": null
+    }
+  ]
+}
+```
+
+**Errors**
+
+| Status | Condition                                              |
+|--------|--------------------------------------------------------|
+| 401    | Missing or expired session cookie / API key            |
+| 422    | `q` missing or shorter than 2 characters               |
+| 503    | Elasticsearch unavailable                              |
+
+---
+
 ### `POST /search`
 
 Unified payload-based query endpoint. Send `ticker`, `statement_type`, and

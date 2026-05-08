@@ -67,9 +67,12 @@ TAGS_METADATA = [
     {
         "name": "search",
         "description": (
-            "Unified payload-based query endpoint. POST a ticker, statement type, "
-            "and optional fiscal year to retrieve any financial record in one call. "
-            "Requires a valid session cookie or X-API-Key header (paid/admin tier)."
+            "Financial data query and live search endpoints.  "
+            "``POST /search`` — unified payload-based query: POST a ticker, statement type, "
+            "and optional fiscal year to retrieve any financial record in one call.  "
+            "``GET /search/live?q=...`` — search-as-you-type Elasticsearch suggestions "
+            "returning the top 5 most relevant docs/page results for partial input.  "
+            "Both endpoints require a valid session cookie or X-API-Key header."
         ),
     },
     {

@@ -35,7 +35,8 @@ src/backend/
 │   ├── rag_retriever.py      # Intent 4: Elasticsearch BM25 + KNN retrieval
 │   ├── rag_answer.py         # Intent 4: Gemini grounded answer generation
 │   ├── es_client.py          # Shared Elasticsearch client
-│   ├── es_docs_index.py      # Elasticsearch index + alias bootstrap
+│   ├── es_docs_index.py      # Elasticsearch index + alias bootstrap (v2 adds autocomplete fields)
+│   ├── live_search.py        # Search-as-you-type: lightweight BM25 over autocomplete sub-fields
 │   ├── embeddings.py         # Shared embedding client (Gemini)
 │   ├── asr.py                # ASR engine (faster-whisper / Gemini Audio)
 │   └── tts.py                # Text-to-speech (edge-tts / Google Cloud TTS)
@@ -86,7 +87,7 @@ Additional middleware (rate limiter, request logger, auth) is planned for Phase 
 |----------------|------------------|--------------|---------------------------------------------------------------------------|
 | `companies`    | `/companies`     | GET          | list, detail, KPI summary, qualitative insight                            |
 | `financials`   | `/financials`    | GET          | income statement, balance sheet, cash flow (per ticker)                   |
-| `search`       | `/search`        | POST         | unified payload-based query across all statement types (developer API)    |
+| `search`       | `/search`        | GET / POST   | `GET /search/live?q=` — live Elasticsearch suggestions (top 5); `POST /search` — unified payload-based query (developer API) |
 | `jarvis`       | `/api/jarvis`    | POST         | `/intent/stream`, `/voice/stream`, `/tts` — Jarvis voice assistant        |
 | `rag`          | `/rag`           | POST / GET   | `/ask` (NL question answering), `/health` — Elasticsearch RAG             |
 
@@ -158,9 +159,11 @@ All configuration is via environment variables:
 | `GOOGLE_API_KEY` | — | Required for LangGraph intent engine (Gemini) |
 | `JARVIS_INTENT_ENGINE` | `keyword` | `keyword` or `langgraph` or `dify` |
 | `JARVIS_GEMINI_MODEL` | — | Override Gemini model for Jarvis (fallback: `GEMINI_MODEL`) |
-| `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch host for RAG |
-| `ELASTICSEARCH_DOCS_INDEX` | `finsight_docs_current` | Elasticsearch alias for RAG docs index |
+| `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch host for RAG and live search |
+| `ELASTICSEARCH_DOCS_INDEX` | `finsight_docs_current` | Elasticsearch alias for RAG docs index and live search |
+| `ELASTICSEARCH_DOCS_INDEX_VERSION` | `v2` | Physical index version (`v2` adds autocomplete sub-fields for live search) |
 | `RAG_EMBEDDING_MODEL` | `models/gemini-embedding-001` | Gemini embedding model for RAG |
+| `LIVE_SEARCH_SNIPPET_CHARS` | `160` | Maximum characters per result snippet in `GET /search/live` |
 
 Production values are set in the Render dashboard. Local development values live
 in `.env` (see `.env.example`).

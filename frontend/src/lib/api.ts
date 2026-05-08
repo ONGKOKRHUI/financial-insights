@@ -20,6 +20,7 @@ import type {
   CompanyDetail,
   KPISummary,
   IncomeStatementResponse,
+  LiveSearchResponse,
 } from "@/types";
 
 const BASE = "/api";
@@ -145,6 +146,35 @@ export const api = {
         "/users/api-key",
         "POST"
       ),
+  },
+
+  // ---- Live search (Phase 6) -----------------------------------------------
+  search: {
+    /**
+     * Search-as-you-type: returns up to 5 Elasticsearch suggestions.
+     *
+     * The fetch is intentionally not cached (cache: "no-store") so results
+     * update with every debounced keystroke.  The AbortSignal lets callers
+     * cancel stale in-flight requests when the user keeps typing.
+     *
+     * @param query  - Partial search string (min 2 chars).
+     * @param signal - Optional AbortSignal to cancel the request.
+     */
+    live: async (query: string, signal?: AbortSignal): Promise<LiveSearchResponse> => {
+      const res = await fetch(
+        `${BASE}/search/live?q=${encodeURIComponent(query)}`,
+        {
+          credentials: "include",
+          cache: "no-store",
+          signal,
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Unknown error");
+        throw new Error(`Live search error ${res.status}: ${text}`);
+      }
+      return res.json() as Promise<LiveSearchResponse>;
+    },
   },
 
   // ---- Stripe (Phase 4) ----------------------------------------------------

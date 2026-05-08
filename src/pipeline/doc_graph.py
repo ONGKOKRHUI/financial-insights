@@ -76,6 +76,7 @@ def run_doc_pipeline(doc_roots: list[str], dry_run: bool = False, embed: bool = 
     initial_state = {
         "doc_roots": doc_roots,
         "dry_run": dry_run,
+        "embed": embed,
         "file_paths": [],
         "sections": [],
         "chunks": [],

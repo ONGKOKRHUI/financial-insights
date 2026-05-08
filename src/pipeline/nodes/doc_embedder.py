@@ -139,6 +139,10 @@ def embed_chunks(state: dict) -> dict:
     if not chunks:
         return {"embedded_chunks": [], "errors": []}
 
+    if not state.get("embed", True):
+        logger.info("Embedding skipped (embed=False)")
+        return {"embedded_chunks": chunks, "errors": []}
+
     if not _GOOGLE_API_KEY:
         errors.append("embed_chunks: GOOGLE_API_KEY is not set — skipping embeddings")
         logger.error("GOOGLE_API_KEY not set; embedding skipped")

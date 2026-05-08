@@ -32,6 +32,10 @@ INGESTION_VERSION = "1.0.0"
 _REPO = os.getenv("RAG_REPO", "finsight")
 _BRANCH = os.getenv("RAG_BRANCH", "main")
 _VISIBILITY = os.getenv("RAG_VISIBILITY", "internal")
+# When set, prepend this base URL to the relative source path to build a
+# clickable source_uri (e.g. "https://github.com/org/repo/blob/main").
+# Leave unset for local-only ingestion so source_uri is stored as None.
+_DOCS_BASE_URI = os.getenv("RAG_DOCS_BASE_URI", "").rstrip("/")
 
 _CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _TABLE_ROW_RE = re.compile(r"^\|.*\|$", re.MULTILINE)
@@ -48,6 +52,25 @@ def _make_chunk_id(source_path: str, heading_path: list[str], chunk_index: int, 
 
 def _make_doc_id(source_path: str) -> str:
     return hashlib.sha256(source_path.encode()).hexdigest()[:16]
+
+
+def _make_source_uri(source_path: str) -> Optional[str]:
+    """Build a navigable source_uri, or None for local-only ingestion."""
+    if not _DOCS_BASE_URI:
+        return None
+    # Strip any leading path components up to and including the repo root so
+    # we get a clean relative path like "docs/architecture/rag-architecture.md".
+    p = Path(source_path)
+    try:
+        # Try to find "docs/" as an anchor — works for the standard project layout
+        parts = p.parts
+        for i, part in enumerate(parts):
+            if part == "docs":
+                rel = "/".join(parts[i:])
+                return f"{_DOCS_BASE_URI}/{rel}"
+    except Exception:
+        pass
+    return f"{_DOCS_BASE_URI}/{p.name}"
 
 
 def _prefix_context(section: ParsedSection, content: str) -> str:
@@ -130,7 +153,7 @@ def _chunk_section(section: ParsedSection) -> list[DocumentChunk]:
             "chunk_id": chunk_id,
             "doc_id": doc_id,
             "source_path": source_path,
-            "source_uri": f"file://{source_path}",
+            "source_uri": _make_source_uri(source_path),
             "repo": _REPO,
             "branch": _BRANCH,
             "content_hash": _content_hash(raw),
