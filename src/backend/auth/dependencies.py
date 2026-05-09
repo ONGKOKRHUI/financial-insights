@@ -151,9 +151,17 @@ def get_api_key_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or revoked API key.",
         )
-    return _get_user_by_email(
-        db.query(User).filter(User.id == api_key_row.user_id).first().email, db
+    user = (
+        db.query(User)
+        .filter(User.id == api_key_row.user_id, User.is_active.is_(True))
+        .first()
     )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API key owner is missing or deactivated.",
+        )
+    return user
 
 
 def require_api_key_or_session(
