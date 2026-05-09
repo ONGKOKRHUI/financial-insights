@@ -25,16 +25,22 @@
  *
  * Implementation note
  * -------------------
- * The middleware reads the ``access_token`` HttpOnly cookie and decodes
- * the JWT payload **without verifying the signature** (Edge runtime does
- * not have access to the secret key).  Full cryptographic verification
- * happens on the FastAPI backend for every protected API request.
+ * The middleware uses the JWT payload only as a lightweight auth hint.
+ * Role-sensitive routes perform a server-side call to `/api/auth/me`,
+ * which validates the token with the backend before applying RBAC redirects.
  *
  * The middleware redirect is a UX guard — it prevents rendering protected
  * pages for clearly unauthenticated users.  It is NOT the security boundary.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+type VerifiedUser = {
+  id: number;
+  email: string;
+  role: "free" | "paid" | "admin";
+  has_api_key: boolean;
+};
 
 /**
  * Decode a JWT payload from a base64url-encoded token string.
@@ -76,14 +82,11 @@ function isAdvancedCompanyPath(pathname: string): boolean {
   return parts.length >= 3 && parts[0] === "companies" && parts[2] === "advanced";
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("access_token")?.value ?? null;
   const payload = token ? decodeJwtPayload(token) : null;
-  // Accept any valid, decodable JWT as authenticated — the role field is used
-  // only for fine-grained RBAC below, not for the authentication gate itself.
-  const role = (payload?.role as string) ?? null;
-  const isAuthenticated = !!(payload?.sub ?? role);
+  const isAuthenticated = !!payload?.sub;
 
   // Skip middleware for non-browser requests (build, server fetch, etc.)
   const isBrowser = req.headers.get("sec-fetch-dest") !== null;
@@ -122,20 +125,47 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // /admin/** — requires admin role.
-  if (pathname.startsWith("/admin")) {
-    if (role !== "admin") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/";
-      return NextResponse.redirect(url);
-    }
-  }
+  // Role-based redirects use backend-verified profile instead of unverified JWT claims.
+  if (
+    pathname.startsWith("/admin") ||
+    isAdvancedCompanyPath(pathname) ||
+    pathname.startsWith("/dashboard")
+  ) {
+    const meUrl = new URL("/api/auth/me", req.url);
+    try {
+      const res = await fetch(meUrl, {
+        headers: { cookie: req.headers.get("cookie") ?? "" },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/auth/login";
+        url.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(url);
+      }
+      const user = (await res.json()) as VerifiedUser;
 
-  // Advanced analytics — requires paid or admin role.
-  if (isAdvancedCompanyPath(pathname) || pathname.startsWith("/dashboard")) {
-    if (role !== "paid" && role !== "admin") {
+      if (pathname.startsWith("/admin") && user.role !== "admin") {
+        const url = req.nextUrl.clone();
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+      }
+
+      if (
+        (isAdvancedCompanyPath(pathname) || pathname.startsWith("/dashboard")) &&
+        user.role !== "paid" &&
+        user.role !== "admin"
+      ) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/upgrade";
+        return NextResponse.redirect(url);
+      }
+
+      return NextResponse.next();
+    } catch {
       const url = req.nextUrl.clone();
-      url.pathname = "/upgrade";
+      url.pathname = "/auth/login";
+      url.searchParams.set("redirect", pathname);
       return NextResponse.redirect(url);
     }
   }

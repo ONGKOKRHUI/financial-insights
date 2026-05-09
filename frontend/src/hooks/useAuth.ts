@@ -69,7 +69,11 @@ async function postRegister(body: { email: string }): Promise<{ email: string; g
 }
 
 async function postLogout(): Promise<void> {
-  await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  const res = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Logout failed" }));
+    throw new Error(err.detail ?? "Logout failed");
+  }
 }
 
 // ---------------------------------------------------------------------------

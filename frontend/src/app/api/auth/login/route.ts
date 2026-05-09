@@ -19,6 +19,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+type AuthUser = {
+  id: number;
+  email: string;
+  role: "free" | "paid" | "admin";
+  has_api_key: boolean;
+};
+
 const BACKEND =
   process.env.INTERNAL_API_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
@@ -54,7 +61,7 @@ export async function POST(req: NextRequest) {
   const accessTokenHeader = setCookieHeaders.find((c) => c.startsWith("access_token="));
   const accessTokenValue = accessTokenHeader?.split(";")[0].slice("access_token=".length);
 
-  let profile: unknown;
+  let profile: AuthUser | null = null;
 
   if (accessTokenValue) {
     try {
@@ -63,17 +70,26 @@ export async function POST(req: NextRequest) {
         cache: "no-store",
       });
       if (meRes.ok) {
-        profile = await meRes.json();
+        const meJson = (await meRes.json()) as Partial<AuthUser>;
+        if (
+          typeof meJson.id === "number" &&
+          typeof meJson.email === "string" &&
+          (meJson.role === "free" || meJson.role === "paid" || meJson.role === "admin") &&
+          typeof meJson.has_api_key === "boolean"
+        ) {
+          profile = meJson as AuthUser;
+        }
       }
     } catch {
-      // If /users/me fails, fall through to the login response fallback below.
+      // If /users/me fails, return a hard error rather than poisoning client auth state.
     }
   }
 
-  // Fallback: use the bare login body ({email, role, message}) when /users/me
-  // is unavailable.  The SessionHydrator will re-fetch on the next render.
   if (!profile) {
-    profile = await backendRes.json().catch(() => ({}));
+    return NextResponse.json(
+      { detail: "Login succeeded but profile hydration failed. Please retry." },
+      { status: 502 },
+    );
   }
 
   const nextRes = NextResponse.json(profile, { status: 200 });

@@ -71,10 +71,14 @@ async def _synthesize_google(text: str) -> bytes:
         "audioConfig": {"audioEncoding": "MP3"},
     }
 
-    url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={api_key}"
+    url = "https://texttospeech.googleapis.com/v1/text:synthesize"
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.post(url, json=payload)
+        response = await client.post(
+            url,
+            json=payload,
+            headers={"x-goog-api-key": api_key},
+        )
         response.raise_for_status()
         data = response.json()
 

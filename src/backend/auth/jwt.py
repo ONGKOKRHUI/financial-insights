@@ -15,6 +15,8 @@ Environment variables required
 """
 
 import os
+import secrets
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -23,7 +25,21 @@ from jose import JWTError, jwt
 
 load_dotenv(find_dotenv())
 
-SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production-use-openssl-rand-hex-32")
+logger = logging.getLogger(__name__)
+
+_environment = os.getenv("ENVIRONMENT", os.getenv("ENV", "development")).strip().lower()
+_is_production = _environment in {"prod", "production"}
+_configured_secret = os.getenv("SECRET_KEY", "").strip()
+
+if _configured_secret:
+    SECRET_KEY: str = _configured_secret
+elif _is_production:
+    raise RuntimeError("SECRET_KEY must be set in production.")
+else:
+    # Avoid predictable fallback secrets in non-production environments.
+    SECRET_KEY = secrets.token_hex(32)
+    logger.warning("SECRET_KEY is not set; generated ephemeral development secret.")
+
 ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
 REFRESH_TOKEN_EXPIRE_DAYS: int = 7
