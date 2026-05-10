@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements-doc-ingest.txt .
+RUN pip install --no-cache-dir -r requirements-doc-ingest.txt
+
+# Copy the pipeline source so `pipeline.*` imports resolve
+COPY . ./pipeline
+
+ENV PYTHONPATH=/app
+
+ENTRYPOINT ["python", "-m", "pipeline.doc_graph"]
+# --no-embed: live search is BM25-only so vectors aren't needed at startup.
+# Run without --no-embed manually if you want KNN/semantic search.
+CMD ["--docs", "/app/frontend/src/app/api-docs/page.tsx", "--no-embed"]

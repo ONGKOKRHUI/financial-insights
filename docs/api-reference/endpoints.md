@@ -248,6 +248,59 @@ Returns 5 years of annual cash flow data.
 
 ## Search
 
+### `GET /search/live`
+
+Search-as-you-type endpoint that returns the top 5 most relevant docs/page
+suggestions for a partial query string using edge n-gram BM25 over the indexed
+webpage content.  Designed for per-keystroke calls from the frontend.
+
+**Authentication** — requires a valid session cookie or `X-API-Key` header.
+
+**Query Parameters**
+
+| Parameter | Type   | Required | Description                             |
+|-----------|--------|----------|-----------------------------------------|
+| `q`       | string | yes      | Partial search query (2–200 characters) |
+
+**Example Request**
+
+```bash
+curl -H "X-API-Key: your_api_key" \
+  "https://finsight-api.onrender.com/search/live?q=jarvis"
+```
+
+**Response** — `LiveSearchResponse`
+
+```json
+{
+  "query": "jarvis",
+  "total": 3,
+  "hits": [
+    {
+      "rank": 1,
+      "title": "Jarvis Voice Assistant Overview",
+      "snippet": "Hands-free navigation by voice using Gemini ASR and the browser Web Speech API.",
+      "source_path": "docs/ai-systems/jarvis-overview.md",
+      "source_uri": "https://finsight.dev/ai-systems/jarvis-overview/",
+      "score": 1.403281,
+      "doc_type": "project_doc",
+      "domain": "platform",
+      "ticker": null
+    }
+  ]
+}
+```
+
+**Errors**
+
+| Status | Condition                                              |
+|--------|--------------------------------------------------------|
+| 401    | Missing or expired session cookie / API key            |
+| 422    | `q` missing or shorter than 2 characters               |
+| 503    | Elasticsearch unavailable                              |
+
+---
+
 ### `POST /search`
 
 Unified payload-based query endpoint. Send `ticker`, `statement_type`, and
@@ -309,7 +362,7 @@ curl -X POST "https://finsight-api.onrender.com/search" \
 
 ## Covered Tickers
 
-The following ticker symbols are valid for all endpoints:
+The following ticker symbols are valid for all financial endpoints:
 
 | Ticker    | Company                    | Sector                     |
 |-----------|----------------------------|----------------------------|
@@ -321,3 +374,79 @@ The following ticker symbols are valid for all endpoints:
 | TELEKOM   | Telekom Malaysia Berhad    | Communication Services     |
 | GENTING   | Genting Berhad             | Consumer Discretionary     |
 | SUNWAY    | Sunway Berhad              | Real Estate                |
+
+New tickers can be added by inserting company + financial rows into the database and updating `COMPANY_ALIASES` in `services/financial_query.py`. No endpoint or handler code needs to change.
+
+---
+
+## Jarvis Voice API
+
+### `POST /api/jarvis/intent/stream`
+
+Natural-language voice intent endpoint (primary path — text input).
+
+**Request Body (FormData)**
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | string | Refined transcript text from the browser Web Speech API |
+| `session_id` | string (optional) | Client session identifier |
+
+**Response** — Server-Sent Events (SSE) stream
+
+```json
+{ "event": "response", "data": { "action": "respond", "message": "MAYBANK's revenue for FY2024 was MYR 30.20 billion.", "voice": "...", "intent_id": 2, "sources": [...], "confidence": 0.99, "engine": "langgraph" } }
+```
+
+**Intent 2 (FinancialInfo) example**
+
+```bash
+curl -X POST "https://finsight-api.onrender.com/api/jarvis/intent/stream" \
+  -H "X-API-Key: your_api_key" \
+  -F "text=what is the revenue of MAYBANK in 2024"
+```
+
+The backend resolves `MAYBANK` → ticker, `revenue` → `income_statement.revenue_bln`, `2024` → FY2024, then queries PostgreSQL and returns a grounded answer.
+
+---
+
+## RAG
+
+### `POST /rag/ask`
+
+Natural-language documentation and company question answering using Elasticsearch hybrid retrieval.
+
+**Request Body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `question` | string | yes | Natural-language question |
+| `scope` | string | no | `documentation`, `company`, or `all` (default: `all`) |
+| `ticker` | string | no | Restrict to a specific company |
+| `top_k` | integer | no | Number of source chunks (1–12, default: 6) |
+| `include_sources` | boolean | no | Include source citations (default: true) |
+
+**Example**
+
+```bash
+curl -X POST "https://finsight-api.onrender.com/rag/ask" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -d '{"question": "How does Jarvis voice navigation work?", "scope": "documentation"}'
+```
+
+**Response** — `RagAskResponse`
+
+```json
+{
+  "answer": "Jarvis uses the browser Web Speech API for live transcription...",
+  "question": "How does Jarvis voice navigation work?",
+  "scope": "documentation",
+  "sources": [
+    { "chunk_id": "...", "title": "Jarvis Architecture", "source_path": "docs/ai-systems/jarvis-architecture.md", "snippet": "...", "rank": 1 }
+  ],
+  "retrieval": { "strategy": "hybrid_rrf", "lexical_hits": 12, "vector_hits": 10, "fused_hits": 6 },
+  "confidence": "high",
+  "abstained": false
+}
+```

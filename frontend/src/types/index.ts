@@ -51,3 +51,21 @@ export interface IncomeStatementResponse {
   currency: string;
   data: IncomeStatementEntry[];
 }
+
+export interface LiveSearchResult {
+  rank: number;
+  title: string;
+  snippet: string;
+  source_path: string;
+  source_uri: string | null;
+  score: number;
+  doc_type: string;
+  domain: string;
+  ticker: string | null;
+}
+
+export interface LiveSearchResponse {
+  query: string;
+  hits: LiveSearchResult[];
+  total: number;
+}

@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import os
 import re
-import time
 from typing import Optional
 
 import requests
@@ -59,12 +58,41 @@ _TICKER_NAMES = {
     "/":                   "Home",
 }
 
+# Documentation/API queries should never be forced into company-page navigation
+# just because they include a ticker (e.g., "how do I use API to get Maybank ...").
+_DOC_QUERY_RE = re.compile(
+    r"\b("
+    r"how\s+do\s+i|how\s+to|api|endpoint|authentication|auth|x-api-key|"
+    r"swagger|docs?|reference|curl|request|header|payload|"
+    r"income\s+statement|balance\s+sheet|cash\s+flow"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 # ── Keyword engine (primary) ──────────────────────────────────────────────────
 
 def _map_keyword(transcript: str) -> dict:
     """Match transcript against known patterns and return a navigation command."""
     cleaned = transcript.lower().strip()
+
+    # Guardrail: for documentation-style questions, avoid accidental navigation
+    # fallback to a company page and return a helpful response instead.
+    if _DOC_QUERY_RE.search(cleaned):
+        logger.info("Keyword guardrail: doc/api-like query detected")
+        return {
+            "action": "respond",
+            "target": None,
+            "message": (
+                "This sounds like an API/documentation question. "
+                "Please open /api-docs or try rephrasing your question."
+            ),
+            "voice": (
+                "This sounds like an API or documentation question. "
+                "Please open the API docs page."
+            ),
+            "engine": "keyword",
+        }
 
     for pattern, route in _ROUTE_PATTERNS:
         if re.search(pattern, cleaned, re.IGNORECASE):
@@ -118,7 +146,7 @@ def _map_langgraph(transcript: str, session_id: str = "anonymous") -> dict:
                 "or switch JARVIS_INTENT_ENGINE=keyword."
             )
         else:
-            logger.warning("LangGraph intent error: %s. Falling back to keyword engine.", exc)
+            logger.exception("LangGraph intent error. Falling back to keyword engine.")
         return _map_keyword(transcript)
 
 

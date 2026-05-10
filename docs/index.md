@@ -21,7 +21,7 @@ FinSight API bridges the gap between raw financial disclosures and actionable de
 | [API Reference](api-reference/overview.md) | Endpoints, auth, and usage examples | ✅ Current |
 | [Frontend](frontend/architecture.md) | Next.js dashboard, routing, and state management | ✅ Current |
 | [AI Systems](ai-systems/jarvis-overview.md) | Jarvis voice assistant, intent classification | ✅ Current |
-| [RAG Pipeline](ai-systems/rag-pipeline.md) | RAG, LLM analysis, and agents | 🚧 Planned |
+| [RAG Pipeline](ai-systems/rag-pipeline.md) | RAG, LLM analysis, and agents | ✅ Current |
 | [MLOps](mlops/model-training.md) | Model training, tracking, and deployment | 🚧 Planned |
 | [System Design](system-design/scaling.md) | Scaling, reliability, and data quality | 🚧 Planned |
 | [Development](development/environment-setup.md) | Local setup and contribution guide | ✅ Current |
