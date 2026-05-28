@@ -16,10 +16,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from database import SessionLocal, engine
+from database import SessionLocal, engine, get_db
 from models import Base
 from routers import admin, companies, financials, jarvis, pipeline_trigger, search
 from routers import auth as auth_router
@@ -174,3 +176,21 @@ def health():
     from services.es_client import es_health
 
     return {"status": "ok", "elasticsearch": es_health()}
+
+
+@app.get("/health/db", tags=["health"])
+def health_db(db: Session = Depends(get_db)):
+    """Readiness probe: confirms Supabase/PostgreSQL is reachable."""
+    try:
+        db.execute(text("SELECT 1"))
+        company_count = db.execute(text("SELECT COUNT(*) FROM companies")).scalar()
+        return {
+            "status": "ok",
+            "database": "connected",
+            "company_count": company_count,
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database unavailable: {exc}",
+        ) from exc

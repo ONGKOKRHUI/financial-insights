@@ -21,6 +21,15 @@ def test_health(client: TestClient):
     assert "elasticsearch" in body
 
 
+def test_health_db(client: TestClient):
+    res = client.get("/health/db")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "ok"
+    assert body["database"] == "connected"
+    assert body["company_count"] >= 1
+
+
 # ---------------------------------------------------------------------------
 # Companies
 # ---------------------------------------------------------------------------

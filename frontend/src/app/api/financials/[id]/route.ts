@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { proxyBackendResponse } from "@/lib/proxyBackend";
 
 // Backend API base URL (env variable or localhost fallback)
 // * Priority:
@@ -28,17 +29,12 @@ export async function GET(
       { next: { revalidate: 3600 } }
     );
 
-    // Return 404 if backend cannot find the company
     if (!res.ok) {
-      return NextResponse.json(
-        { error: `Financials for '${ticker}' not found` },
-        { status: 404 }
-      );
+      return proxyBackendResponse(res);
     }
 
     const data = await res.json();
 
-    // Return data with CDN caching headers
     return NextResponse.json(data, {
       headers: {
         "Cache-Control":
