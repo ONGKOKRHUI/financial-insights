@@ -17,7 +17,7 @@ interface MarginChartProps {
 }
 
 interface TooltipPayload {
-  value: number;
+  value: number | null;
   name: string;
   color: string;
 }
@@ -38,7 +38,9 @@ function CustomTooltip({
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-4">
           <span>{p.name}</span>
-          <span className="font-medium">{p.value.toFixed(1)}%</span>
+          <span className="font-medium">
+            {typeof p.value === "number" ? `${p.value.toFixed(1)}%` : "N/A"}
+          </span>
         </p>
       ))}
     </div>
@@ -89,6 +91,7 @@ export default function MarginChart({ data }: MarginChartProps) {
             stroke="#3b82f6"
             fill="url(#grossGrad)"
             strokeWidth={2}
+            connectNulls={false}
           />
           <Area
             type="monotone"
@@ -97,6 +100,7 @@ export default function MarginChart({ data }: MarginChartProps) {
             stroke="#8b5cf6"
             fill="url(#opGrad)"
             strokeWidth={2}
+            connectNulls={false}
           />
           <Area
             type="monotone"
@@ -105,6 +109,7 @@ export default function MarginChart({ data }: MarginChartProps) {
             stroke="#10b981"
             fill="url(#netGrad)"
             strokeWidth={2}
+            connectNulls={false}
           />
         </AreaChart>
       </ResponsiveContainer>

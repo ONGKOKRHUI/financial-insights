@@ -57,11 +57,17 @@ interface WaterfallStep {
  * @param entry    - Income statement data row.
  * @returns        Array of {@link WaterfallStep} for the chart.
  */
-function buildWaterfallSteps(entry: IncomeStatementEntry): WaterfallStep[] {
-  const rev = entry.revenue_bln ?? 0;
-  const gp = entry.gross_profit_bln ?? 0;
-  const oi = entry.operating_income_bln ?? 0;
-  const ni = entry.net_income_bln ?? 0;
+function buildWaterfallSteps(entry: IncomeStatementEntry): WaterfallStep[] | null {
+  const {
+    revenue_bln: rev,
+    gross_profit_bln: gp,
+    operating_income_bln: oi,
+    net_income_bln: ni,
+  } = entry;
+
+  if (rev === null || gp === null || oi === null || ni === null) {
+    return null;
+  }
 
   const cogr = rev - gp;                 // cost of revenue
   const opex = gp - oi;                  // operating expenses
@@ -88,6 +94,14 @@ export default function WaterfallChart({ data, currency }: Props) {
   }
 
   const steps = buildWaterfallSteps(data);
+
+  if (!steps) {
+    return (
+      <div className="flex h-64 items-center justify-center text-slate-500 text-sm">
+        Waterfall unavailable because the latest income statement has missing values.
+      </div>
+    );
+  }
 
   return (
     <ResponsiveContainer width="100%" height={300}>

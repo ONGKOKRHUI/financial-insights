@@ -42,8 +42,10 @@ interface Props {
  * @param entry - A single income statement row.
  * @returns A score between 0 and 100.
  */
-function deriveSentimentScore(entry: IncomeStatementEntry): number {
-  const margin = entry.net_margin_pct ?? 0;
+function deriveSentimentScore(entry: IncomeStatementEntry): number | null {
+  const margin = entry.net_margin_pct;
+  if (margin === null) return null;
+
   // Clamp margin to [0, 40] then scale to [0, 100]
   return Math.round(Math.min(Math.max(margin, 0), 40) * 2.5);
 }
@@ -94,8 +96,12 @@ export default function SentimentOverlayChart({ data }: Props) {
           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
           labelStyle={{ color: "#e2e8f0" }}
           formatter={(value, name) => {
-            const v = Number(value ?? 0);
             const n = String(name);
+            if (value === null || value === undefined) {
+              return ["N/A", n === "sentiment" ? "AI Sentiment" : "Revenue"];
+            }
+
+            const v = Number(value);
             return [
               n === "sentiment" ? `${v}/100` : `MYR ${v.toFixed(1)}B`,
               n === "sentiment" ? "AI Sentiment" : "Revenue",
@@ -117,6 +123,7 @@ export default function SentimentOverlayChart({ data }: Props) {
           stroke="#10b981"
           strokeWidth={2}
           dot={{ r: 4, fill: "#10b981" }}
+          connectNulls={false}
         />
       </ComposedChart>
     </ResponsiveContainer>

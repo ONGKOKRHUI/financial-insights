@@ -114,3 +114,13 @@ def client() -> TestClient:
     PostgreSQL database which is not available during testing.
     """
     return TestClient(app, raise_server_exceptions=True)
+
+
+@pytest.fixture()
+def db_session():
+    """Direct DB session for tests that need to arrange specific rows."""
+    db = _SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

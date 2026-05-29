@@ -81,16 +81,19 @@ function TableRow({
         {label}
       </td>
       {data.map((row, idx) => {
-        const current = row[field] as number;
+        const current = row[field];
         const next = data[idx + 1];
-        const previous = next ? (next[field] as number) : null;
+        const previous = next ? next[field] : null;
+        const hasCurrent = typeof current === "number";
+        const hasPrevious = typeof previous === "number";
+
         return (
           <td key={row.fiscal_year} className="px-4 py-3 text-right">
             <div className="flex flex-col items-end gap-0.5">
               <span className={highlight ? "font-semibold text-slate-900" : "text-slate-700"}>
-                {format(current)}
+                {hasCurrent ? format(current) : "N/A"}
               </span>
-              {previous !== null && (
+              {hasCurrent && hasPrevious && (
                 <DeltaCell current={current} previous={previous} />
               )}
             </div>

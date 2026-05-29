@@ -35,14 +35,14 @@ export interface KPISummary {
 
 export interface IncomeStatementEntry {
   fiscal_year: number;
-  revenue_bln: number;
-  gross_profit_bln: number;
-  operating_income_bln: number;
-  net_income_bln: number;
-  eps: number;
-  gross_margin_pct: number;
-  operating_margin_pct: number;
-  net_margin_pct: number;
+  revenue_bln: number | null;
+  gross_profit_bln: number | null;
+  operating_income_bln: number | null;
+  net_income_bln: number | null;
+  eps: number | null;
+  gross_margin_pct: number | null;
+  operating_margin_pct: number | null;
+  net_margin_pct: number | null;
 }
 
 export interface IncomeStatementResponse {

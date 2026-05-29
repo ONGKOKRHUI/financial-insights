@@ -6,6 +6,9 @@ in-memory SQLite database; no live PostgreSQL connection is required.
 """
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+import models
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +92,35 @@ def test_income_statement(client: TestClient):
     assert "fiscal_year" in entry
     assert "revenue_bln" in entry
     assert "net_income_bln" in entry
+
+
+def test_income_statement_allows_null_metrics(client: TestClient, db_session: Session):
+    db_session.query(models.IncomeStatement).filter(
+        models.IncomeStatement.ticker == "MAYBANK",
+        models.IncomeStatement.fiscal_year == 2099,
+    ).delete()
+    db_session.add(
+        models.IncomeStatement(
+            ticker="MAYBANK",
+            fiscal_year=2099,
+            revenue_bln=32.5,
+            gross_profit_bln=30.3,
+            operating_income_bln=14.1,
+            net_income_bln=10.8,
+            eps=0.87,
+            gross_margin_pct=None,
+            operating_margin_pct=None,
+            net_margin_pct=None,
+        )
+    )
+    db_session.commit()
+
+    res = client.get("/financials/MAYBANK/income-statement")
+    assert res.status_code == 200
+    row = next(item for item in res.json()["data"] if item["fiscal_year"] == 2099)
+    assert row["gross_margin_pct"] is None
+    assert row["operating_margin_pct"] is None
+    assert row["net_margin_pct"] is None
 
 
 def test_balance_sheet(client: TestClient):

@@ -18,7 +18,7 @@ interface IncomeBarChartProps {
 }
 
 interface TooltipPayload {
-  value: number;
+  value: number | null;
   name: string;
   color: string;
 }
@@ -42,7 +42,7 @@ function CustomTooltip({
         <p key={p.name} style={{ color: p.color }} className="flex justify-between gap-4">
           <span>{p.name}</span>
           <span className="font-medium">
-            {currency} {p.value.toFixed(1)}B
+            {typeof p.value === "number" ? `${currency} ${p.value.toFixed(1)}B` : "N/A"}
           </span>
         </p>
       ))}

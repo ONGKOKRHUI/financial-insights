@@ -71,6 +71,14 @@ export default async function CompanyPage({
   // Compute YoY deltas from most recent two years
   const latest = incomeData.find((d) => d.fiscal_year === Math.max(...incomeData.map((x) => x.fiscal_year)));
   const prev = incomeData.find((d) => d.fiscal_year === (latest ? latest.fiscal_year - 1 : -1));
+  const revenueDelta =
+    typeof latest?.revenue_bln === "number" && typeof prev?.revenue_bln === "number"
+      ? yoyChange(latest.revenue_bln, prev.revenue_bln)
+      : undefined;
+  const netIncomeDelta =
+    typeof latest?.net_income_bln === "number" && typeof prev?.net_income_bln === "number"
+      ? yoyChange(latest.net_income_bln, prev.net_income_bln)
+      : undefined;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -152,21 +160,13 @@ export default async function CompanyPage({
             <KPICard
               label="Revenue"
               value={formatBillions(summary.revenue_bln, company.currency)}
-              delta={
-                prev && latest
-                  ? yoyChange(latest.revenue_bln, prev.revenue_bln)
-                  : undefined
-              }
+              delta={revenueDelta}
               highlight
             />
             <KPICard
               label="Net Income"
               value={formatBillions(summary.net_income_bln, company.currency)}
-              delta={
-                prev && latest
-                  ? yoyChange(latest.net_income_bln, prev.net_income_bln)
-                  : undefined
-              }
+              delta={netIncomeDelta}
             />
             <KPICard
               label="EPS"

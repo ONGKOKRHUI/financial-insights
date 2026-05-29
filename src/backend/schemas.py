@@ -40,14 +40,14 @@ class KPISummary(BaseModel):
 
 class IncomeStatementEntry(BaseModel):
     fiscal_year: int
-    revenue_bln: float
-    gross_profit_bln: float
-    operating_income_bln: float
-    net_income_bln: float
-    eps: float
-    gross_margin_pct: float
-    operating_margin_pct: float
-    net_margin_pct: float
+    revenue_bln: Optional[float] = None
+    gross_profit_bln: Optional[float] = None
+    operating_income_bln: Optional[float] = None
+    net_income_bln: Optional[float] = None
+    eps: Optional[float] = None
+    gross_margin_pct: Optional[float] = None
+    operating_margin_pct: Optional[float] = None
+    net_margin_pct: Optional[float] = None
 
 
 class IncomeStatementResponse(BaseModel):
