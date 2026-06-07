@@ -1,9 +1,10 @@
 # Data Pipeline Architecture
 
 !!! success "Current MVP"
-    The platform currently runs two production-oriented pipelines:
-    1) financial PDF ingestion into PostgreSQL, and
-    2) documentation ingestion into Elasticsearch for RAG.
+    The platform currently runs three production-oriented pipelines:
+    1) financial PDF ingestion into PostgreSQL,
+    2) ML feature computation into `predictive_features`, and
+    3) documentation ingestion into Elasticsearch for RAG.
 
 ---
 
@@ -11,7 +12,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph Financial ETL
+    subgraph FinancialETL [Financial ETL]
       A[Scheduled Trigger] --> B[Scraper]
       B --> C[PDF Parser]
       C --> D[Data Cleaner]
@@ -19,7 +20,13 @@ flowchart TD
       E --> F[(PostgreSQL)]
     end
 
-    subgraph Docs RAG Ingestion
+    subgraph MLFeaturesETL [ML Features ETL]
+      M1[discover_feature_targets] --> M2[5-Phase Pipeline]
+      M2 --> M3[predictive_features Loader]
+      M3 --> F
+    end
+
+    subgraph DocsRAG [Docs RAG Ingestion]
       G[discover_files] --> H[parse_markdown / parse_tsx]
       H --> I[chunk_sections]
       I --> J[embed_chunks]
@@ -47,6 +54,17 @@ Normalizes parsed content into consistent financial schemas.
 ### Stage 4 — Database Ingestion
 
 Performs idempotent loads into PostgreSQL tables consumed by API endpoints.
+
+### Stage 5 — ML Feature Computation (Implemented)
+
+The **ML Features ETL** pipeline (`ml_features_etl` Airflow DAG) fetches
+external market data, earnings surprises, KLSE shareholding trades, and sector
+peer signals to compute **19 populated metrics** (of 21 schema columns) per
+quarter into the `predictive_features` table.  Phase 5 currently writes
+**metric 21 only** (`sector_peer_earnings_sentiment`); PDF-based metrics 19–20
+are planned.
+
+See [ML Features ETL](../data-engineering/ml-features-etl.md).
 
 ---
 
@@ -96,14 +114,24 @@ Useful options:
 
 ## Orchestration
 
-Financial ETL orchestration remains scheduler-driven.  
-Docs ingestion currently runs via CLI/manual trigger and is designed to be schedulable in the same orchestration layer.
+Financial ETL orchestration remains scheduler-driven via `finsight_etl` (daily)
+and `jobs.weekly_ingestion` (deployment path).
+
+ML feature computation runs weekly via the `ml_features_etl` Airflow DAG
+(Monday 09:00 MYT).
+
+Docs ingestion currently runs via CLI/manual trigger and is designed to be
+schedulable in the same orchestration layer.
 
 ---
 
 ## Output Schema
 
-- Financial ETL outputs normalized relational records in PostgreSQL.
+- Financial ETL outputs normalized relational records in PostgreSQL
+  (`income_statements`, `kpi_summaries`, etc.).
+- ML Features ETL outputs one row per `(ticker, fiscal_year, fiscal_quarter)`
+  in `predictive_features` with 21 schema columns (**19 populated** by the
+  current pipeline).
 - Docs ingestion outputs chunked documents in Elasticsearch with:
   - source metadata (`source_path`, `doc_type`, `domain`, `ticker`)
   - lineage metadata (`doc_id`, `chunk_id`, previous/next chunk links)

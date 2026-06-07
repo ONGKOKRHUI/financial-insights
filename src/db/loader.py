@@ -294,3 +294,183 @@ def get_unprocessed_pdfs(raw_dir: str) -> list[str]:
     unprocessed = sorted(all_pdfs - processed)
     logger.info("Found %d/%d unprocessed PDFs", len(unprocessed), len(all_pdfs))
     return unprocessed
+
+
+# ── Predictive Features (ML training data) ─────────────────────────────────
+
+# All 21 metric columns in insertion order (matches the ORM model).
+_PREDICTIVE_FEATURE_METRIC_COLS = [
+    # Phase 3 – earning surprises
+    "revenue_beat_rate_8q",
+    "eps_beat_rate_8q",
+    "avg_revenue_surprise_pct",
+    "avg_eps_surprise_pct",
+    "consecutive_double_beat_quarters",
+    # Phase 4 – money flow
+    "net_institutional_cash_flow_myr",
+    "institutional_flow_to_market_cap_ratio",
+    "net_insider_trading_value_myr",
+    "options_iv_rank_pct",
+    # Phase 1 – fundamentals
+    "revenue_yoy_growth_pct",
+    "net_income_yoy_growth_pct",
+    "gross_margin_delta_qoq_pct",
+    "operating_margin_delta_qoq_pct",
+    "fcf_yield_pct",
+    # Phase 2 – valuation
+    "forward_pe_peer_zscore",
+    "forward_pe_peer_discount_pct",
+    "forward_ps_ratio",
+    "peg_ratio",
+    # Phase 5 – forward-looking
+    "guidance_beat_indicator",
+    "backlog_order_book_yoy_growth_pct",
+    "sector_peer_earnings_sentiment",
+]
+
+_ALL_COLS = ["ticker", "fiscal_year", "fiscal_quarter"] + _PREDICTIVE_FEATURE_METRIC_COLS + ["source_metadata"]
+
+
+def _build_predictive_features_upsert_sql() -> str:
+    """Build the UPSERT SQL for ``predictive_features`` at import time."""
+    col_list = ", ".join(_ALL_COLS)
+    placeholder_list = ", ".join(f":{col}" for col in _ALL_COLS)
+    # Metric columns: prefer incoming value but fall back to existing (partial phase runs)
+    metric_updates = "\n            ".join(
+        f"{col} = COALESCE(EXCLUDED.{col}, predictive_features.{col}),"
+        for col in _PREDICTIVE_FEATURE_METRIC_COLS
+    )
+    return f"""
+        INSERT INTO predictive_features ({col_list})
+        VALUES ({placeholder_list})
+        ON CONFLICT ON CONSTRAINT uq_predictive_features_ticker_period DO UPDATE SET
+            {metric_updates}
+            source_metadata = COALESCE(EXCLUDED.source_metadata, predictive_features.source_metadata),
+            updated_at = NOW()
+    """
+
+
+_PREDICTIVE_FEATURES_UPSERT_SQL = _build_predictive_features_upsert_sql()
+
+PREDICTIVE_FEATURES_DDL = """
+CREATE TABLE IF NOT EXISTS predictive_features (
+    id                                   SERIAL PRIMARY KEY,
+    ticker                               VARCHAR(20) NOT NULL REFERENCES companies(ticker),
+    fiscal_year                          INTEGER     NOT NULL,
+    fiscal_quarter                       VARCHAR(2)  NOT NULL,
+
+    revenue_beat_rate_8q                 FLOAT,
+    eps_beat_rate_8q                     FLOAT,
+    avg_revenue_surprise_pct             FLOAT,
+    avg_eps_surprise_pct                 FLOAT,
+    consecutive_double_beat_quarters     INTEGER,
+
+    net_institutional_cash_flow_myr      FLOAT,
+    institutional_flow_to_market_cap_ratio FLOAT,
+    net_insider_trading_value_myr        FLOAT,
+    options_iv_rank_pct                  FLOAT,
+
+    revenue_yoy_growth_pct               FLOAT,
+    net_income_yoy_growth_pct            FLOAT,
+    gross_margin_delta_qoq_pct           FLOAT,
+    operating_margin_delta_qoq_pct       FLOAT,
+    fcf_yield_pct                        FLOAT,
+
+    forward_pe_peer_zscore               FLOAT,
+    forward_pe_peer_discount_pct         FLOAT,
+    forward_ps_ratio                     FLOAT,
+    peg_ratio                            FLOAT,
+
+    guidance_beat_indicator              BOOLEAN,
+    backlog_order_book_yoy_growth_pct    FLOAT,
+    sector_peer_earnings_sentiment       FLOAT,
+
+    source_metadata                      TEXT,
+    created_at                           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_predictive_features_ticker_period
+        UNIQUE (ticker, fiscal_year, fiscal_quarter)
+);
+CREATE INDEX IF NOT EXISTS ix_predictive_features_ticker ON predictive_features (ticker);
+"""
+
+
+def ensure_predictive_features_table() -> None:
+    """Idempotent DDL: create ``predictive_features`` if absent (local dev/Airflow)."""
+    with _transaction() as conn:
+        conn.execute(text(PREDICTIVE_FEATURES_DDL))
+    logger.info("predictive_features table ensured")
+
+
+def _normalise_payload(payload: dict) -> dict:
+    """Return a copy of *payload* with only the columns we insert, defaulting to None."""
+    return {col: payload.get(col) for col in _ALL_COLS}
+
+
+def upsert_predictive_features(payload: dict) -> None:
+    """UPSERT a single (ticker, fiscal_year, fiscal_quarter) feature row.
+
+    Missing metric keys are treated as None so a partial phase run does not
+    overwrite existing values thanks to the COALESCE update policy.
+
+    Args:
+        payload: Dict from ``FeaturePayload.as_loader_payload()`` or equivalent.
+
+    Raises:
+        ValueError: If ``ticker``, ``fiscal_year``, or ``fiscal_quarter`` is absent.
+        Exception: Re-raises database exceptions after logging.
+    """
+    ticker = payload.get("ticker", "")
+    fiscal_year = payload.get("fiscal_year")
+    fiscal_quarter = payload.get("fiscal_quarter", "")
+
+    if not ticker or not fiscal_year or not fiscal_quarter:
+        raise ValueError(
+            f"predictive_features payload missing key field: "
+            f"ticker={ticker!r} fiscal_year={fiscal_year!r} fiscal_quarter={fiscal_quarter!r}"
+        )
+
+    params = _normalise_payload(payload)
+
+    try:
+        with _transaction() as conn:
+            conn.execute(text(_PREDICTIVE_FEATURES_UPSERT_SQL), params)
+        logger.info("Upserted predictive_features: %s FY%s %s", ticker, fiscal_year, fiscal_quarter)
+    except Exception as exc:
+        logger.error(
+            "DB upsert failed for predictive_features %s FY%s %s: %s",
+            ticker, fiscal_year, fiscal_quarter, exc,
+        )
+        raise
+
+
+def upsert_predictive_feature_batch(payloads: list[dict]) -> None:
+    """UPSERT a list of feature payloads within a single transaction.
+
+    Errors in individual rows are logged and do not abort the entire batch;
+    the failing row is skipped and processing continues.
+
+    Args:
+        payloads: List of dicts from ``FeaturePayload.as_loader_payload()``.
+    """
+    if not payloads:
+        logger.info("upsert_predictive_feature_batch: empty batch, nothing to do")
+        return
+
+    success, failed = 0, 0
+    for payload in payloads:
+        try:
+            upsert_predictive_features(payload)
+            success += 1
+        except Exception as exc:  # noqa: BLE001
+            failed += 1
+            logger.error(
+                "Batch upsert skipped row %s/%s/%s: %s",
+                payload.get("ticker"), payload.get("fiscal_year"), payload.get("fiscal_quarter"), exc,
+            )
+
+    logger.info(
+        "upsert_predictive_feature_batch: %d succeeded, %d failed out of %d total",
+        success, failed, len(payloads),
+    )

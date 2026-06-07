@@ -104,6 +104,32 @@ check_new_pdfs >> trigger_parse_pipeline >> load_to_postgres
 | `trigger_parse_pipeline` | `PythonOperator` | Runs `pipeline.graph.run_pipeline(pdf_path)` for each unprocessed PDF. Calls `normalize_financial_data()` on the result. Pushes validated JSON payloads via XCom. |
 | `load_to_postgres` | `PythonOperator` | Calls `db.loader.upsert_report(payload)` for each payload; marks files as `success` or `error` in `pipeline_runs`. |
 
+### Airflow DAG — `dags/ml_features_etl_dag.py`
+
+!!! success "ML Features ETL — Implemented"
+    Computes 19 populated metrics (of 21 schema columns) per
+    `(ticker, fiscal_year, fiscal_quarter)` from yfinance, TradingView,
+    Investing.com, i3investor, and Malaysia Warrants. See
+    [ML Features ETL](ml-features-etl.md) for full documentation.
+
+| Property | Value |
+|---|---|
+| DAG ID | `ml_features_etl` |
+| Schedule | `0 1 * * MON` (Monday 09:00 MYT) |
+| Retries | 3 × 5-minute delay |
+
+**Task graph:**
+
+```
+discover_feature_targets >> run_feature_pipeline >> load_feature_payloads
+```
+
+| Task | What it does |
+|---|---|
+| `discover_feature_targets` | Builds ticker/quarter targets from env vars; pushes via XCom |
+| `run_feature_pipeline` | Runs five-phase ML pipeline with `persist=False`; pushes payloads via XCom |
+| `load_feature_payloads` | Calls `upsert_predictive_feature_batch` into `predictive_features` |
+
 ---
 
 ## Transform Logic

@@ -16,13 +16,13 @@ FinSight API bridges the gap between raw financial disclosures and actionable de
 |---|---|---|
 | [Platform Overview](platform-overview/overview.md) | Goals, monetization, and roadmap | ✅ Current |
 | [Architecture](architecture/system-architecture.md) | System design and component map | ✅ Current |
-| [Data Engineering](data-engineering/scraping-system.md) | Scraping, parsing, and ETL pipeline | ✅ Current |
+| [Data Engineering](data-engineering/scraping-system.md) | Scraping, PDF ETL, and ML features pipeline | ✅ Current |
 | [Backend](backend/fastapi-architecture.md) | FastAPI services, auth, RBAC, and database schema | ✅ Current |
 | [API Reference](api-reference/overview.md) | Endpoints, auth, and usage examples | ✅ Current |
 | [Frontend](frontend/architecture.md) | Next.js dashboard, routing, and state management | ✅ Current |
 | [AI Systems](ai-systems/jarvis-overview.md) | Jarvis voice assistant, intent classification | ✅ Current |
 | [RAG Pipeline](ai-systems/rag-pipeline.md) | RAG, LLM analysis, and agents | ✅ Current |
-| [MLOps](mlops/model-training.md) | Model training, tracking, and deployment | 🚧 Planned |
+| [MLOps](mlops/model-training.md) | Feature store (19/21 metrics), model training, tracking, deployment | 🚧 In Progress |
 | [System Design](system-design/scaling.md) | Scaling, reliability, and data quality | 🚧 Planned |
 | [Development](development/environment-setup.md) | Local setup and contribution guide | ✅ Current |
 
@@ -36,7 +36,7 @@ Phase 2 ── ETL Pipeline & Database         ← Weeks 4–7   ✅ Complete
 Phase 3 ── Backend API & Frontend          ← Weeks 8–11  ✅ Complete
 Phase 4 ── Auth, RBAC, Stripe & Dashboard  ← Weeks 12–16 ✅ Complete
 Phase 5 ── Agentic Workflows & RAG         ← Weeks 17–19 🚧 Planned
-Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Planned
+Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Feature ETL done; training next
 ```
 
 ---
@@ -75,6 +75,7 @@ Phase 6 ── ML Models & Production CI/CD    ← Weeks 21–24 🚧 Planned
     - **Google Gemini** — LLM for structured data extraction and intent classification
 
 === "MLOps"
+    - **predictive_features** — PostgreSQL feature store (19/21 metrics populated weekly)
     - **MLflow** — Experiment tracking and model registry
     - **PyTorch / XGBoost** — Model training
     - **GitHub Actions** — CI/CD pipeline

@@ -13,6 +13,72 @@ from sqlalchemy import (
 from database import Base
 
 
+# ---------------------------------------------------------------------------
+# ML / Predictive features table (Phase 1-5 computed metrics)
+# ---------------------------------------------------------------------------
+
+
+class PredictiveFeature(Base):
+    """One row per (ticker, fiscal_year, fiscal_quarter) holding all 21
+    ML training metrics computed across the 5-phase pipeline.
+
+    Column ordering follows the metric numbering in the pipeline spec:
+      Metrics 1-5   → Phase 3 earning surprises
+      Metrics 6-9   → Phase 4 money flow
+      Metrics 10-14 → Phase 1 fundamentals
+      Metrics 15-18 → Phase 2 valuation
+      Metrics 19-21 → Phase 5 forward-looking
+    """
+
+    __tablename__ = "predictive_features"
+    __table_args__ = (
+        UniqueConstraint(
+            "ticker", "fiscal_year", "fiscal_quarter",
+            name="uq_predictive_features_ticker_period",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String(20), ForeignKey("companies.ticker"), index=True, nullable=False)
+    fiscal_year = Column(Integer, nullable=False)
+    fiscal_quarter = Column(String(2), nullable=False)
+
+    # Phase 3: Earning surprises — metrics 1-5
+    revenue_beat_rate_8q = Column(Float)
+    eps_beat_rate_8q = Column(Float)
+    avg_revenue_surprise_pct = Column(Float)
+    avg_eps_surprise_pct = Column(Float)
+    consecutive_double_beat_quarters = Column(Integer)
+
+    # Phase 4: Money flow — metrics 6-9
+    net_institutional_cash_flow_myr = Column(Float)
+    institutional_flow_to_market_cap_ratio = Column(Float)
+    net_insider_trading_value_myr = Column(Float)
+    options_iv_rank_pct = Column(Float)
+
+    # Phase 1: Fundamentals — metrics 10-14
+    revenue_yoy_growth_pct = Column(Float)
+    net_income_yoy_growth_pct = Column(Float)
+    gross_margin_delta_qoq_pct = Column(Float)
+    operating_margin_delta_qoq_pct = Column(Float)
+    fcf_yield_pct = Column(Float)
+
+    # Phase 2: Valuation — metrics 15-18
+    forward_pe_peer_zscore = Column(Float)
+    forward_pe_peer_discount_pct = Column(Float)
+    forward_ps_ratio = Column(Float)
+    peg_ratio = Column(Float)
+
+    # Phase 5: Forward-looking — metrics 19-21
+    guidance_beat_indicator = Column(Boolean)
+    backlog_order_book_yoy_growth_pct = Column(Float)
+    sector_peer_earnings_sentiment = Column(Float)
+
+    source_metadata = Column(Text)  # JSON string: source URLs, files, timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Company(Base):
     __tablename__ = "companies"
 

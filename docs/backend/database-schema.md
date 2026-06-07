@@ -74,6 +74,19 @@ erDiagram
         text future_outlook
         text key_strategic_events
     }
+    PREDICTIVE_FEATURES {
+        int id PK
+        string ticker FK
+        int fiscal_year
+        string fiscal_quarter
+        float revenue_beat_rate_8q
+        float revenue_yoy_growth_pct
+        float forward_pe_peer_zscore
+        bool guidance_beat_indicator
+        text source_metadata
+        datetime created_at
+        datetime updated_at
+    }
     USERS {
         int id PK
         string email UK
@@ -105,6 +118,7 @@ erDiagram
     COMPANIES ||--o{ BALANCE_SHEETS : has
     COMPANIES ||--o{ CASH_FLOWS : has
     COMPANIES ||--o{ QUALITATIVE_INSIGHTS : has
+    COMPANIES ||--o{ PREDICTIVE_FEATURES : has
     USERS ||--o{ REFRESH_TOKENS : owns
     USERS ||--o{ API_KEYS : owns
 ```
@@ -165,6 +179,35 @@ One row per `(ticker, fiscal_year)`.  `free_cash_flow_bln` = operating − capex
 
 One row per `(ticker, fiscal_year)`.  `key_strategic_events` is stored as a
 JSON string and parsed by the router before returning to the client.
+
+### `predictive_features`
+
+!!! success "ML Features ETL — Implemented"
+    Populated by the five-phase ML feature pipeline
+    (`src/scraper/ml_pipeline_runner.py`).  See
+    [ML Features ETL](../data-engineering/ml-features-etl.md) for the full
+    pipeline documentation.
+
+One row per `(ticker, fiscal_year, fiscal_quarter)`.  The schema defines **21
+computed metrics** for Phase 6 machine learning; **19 are populated today**.
+Unique constraint: `(ticker, fiscal_year, fiscal_quarter)`.
+
+| Column group | Metrics | Source phase | Populated |
+|---|---|---|---|
+| Earning surprises | `revenue_beat_rate_8q`, `eps_beat_rate_8q`, `avg_revenue_surprise_pct`, `avg_eps_surprise_pct`, `consecutive_double_beat_quarters` | Phase 3 (Investing.com → yfinance → i3investor) | Yes |
+| Money flow | `net_institutional_cash_flow_myr`, `institutional_flow_to_market_cap_ratio`, `net_insider_trading_value_myr`, `options_iv_rank_pct` | Phase 4 (i3investor + Malaysia Warrants) | Yes |
+| Fundamentals | `revenue_yoy_growth_pct`, `net_income_yoy_growth_pct`, `gross_margin_delta_qoq_pct`, `operating_margin_delta_qoq_pct`, `fcf_yield_pct` | Phase 1 (yfinance + i3investor margins) | Yes |
+| Valuation | `forward_pe_peer_zscore`, `forward_pe_peer_discount_pct`, `forward_ps_ratio`, `peg_ratio` | Phase 2 (yfinance + TradingView trailing PE peers) | Yes |
+| Forward-looking | `guidance_beat_indicator`, `backlog_order_book_yoy_growth_pct` | Phase 5 (planned — PDF regex) | No |
+| Forward-looking | `sector_peer_earnings_sentiment` | Phase 5 (TradingView peers + Phase 3 cache) | Yes |
+
+Additional columns:
+
+| Column | Type | Notes |
+|---|---|---|
+| `source_metadata` | `TEXT` | JSON string: source URLs, file paths, phase timestamps |
+| `created_at` | `DATETIME` | Row creation timestamp (UTC) |
+| `updated_at` | `DATETIME` | Last UPSERT timestamp (UTC) |
 
 ---
 
@@ -229,8 +272,12 @@ alembic upgrade head
 alembic downgrade -1
 ```
 
-Migration files are stored in `src/backend/alembic/versions/`.  The initial
-Phase 4 migration is `001_add_auth_tables.py`.
+Migration files are stored in `src/backend/alembic/versions/`.  Migrations:
+
+| Revision | File | Description |
+|---|---|---|
+| `001` | `001_add_auth_tables.py` | `users`, `refresh_tokens`, `api_keys` |
+| `002` | `002_add_predictive_features.py` | `predictive_features` (21 ML metric columns) |
 
 ---
 

@@ -1,6 +1,27 @@
+# ── Browser automation (existing) ───────────────────────────────────────────
 greenlet==3.3.2
 playwright==1.58.0
 playwright-stealth==2.0.2
+scrapling[fetchers]>=0.4.8
 pyee==13.0.1
 typing_extensions==4.15.0
 schedule>=1.2.0
+
+# ── ML feature pipeline additions ───────────────────────────────────────────
+
+# Phase 1 & 2: fundamental/valuation data via yfinance
+yfinance>=0.2.54
+pandas>=2.0.0
+numpy>=1.26.0
+
+# Phase 2–4: HTTP scraping (TradingView, Investing.com, i3investor, warrants)
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# Phase 5: quarterly report PDF text extraction
+pdfplumber>=0.11.0
+PyMuPDF>=1.24.0
+
+# Utilities
+python-dateutil>=2.9.0

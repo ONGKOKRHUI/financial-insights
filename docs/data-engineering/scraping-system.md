@@ -160,6 +160,11 @@ def current_quarter() -> tuple[int, str]:
 
 The Airflow DAG (`dags/finsight_etl_dag.py`) remains available for deployments that prefer Airflow. It polls `FINSIGHT_RAW_DIR` for new PDFs via `db.loader.get_unprocessed_pdfs()` and processes whatever the scraper or weekly ingestion job has already written.
 
+A separate weekly DAG — **`ml_features_etl`** (`dags/ml_features_etl_dag.py`) —
+computes ML training metrics from yfinance, TradingView, Investing.com,
+i3investor, and Malaysia Warrants into `predictive_features`.  See
+[ML Features ETL](ml-features-etl.md).
+
 For Airflow-based deployments, run the scraper stage and Airflow stack side-by-side:
 
 ```

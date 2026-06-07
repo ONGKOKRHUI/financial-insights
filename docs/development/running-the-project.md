@@ -105,6 +105,45 @@ python tests/test_phase4_airflow_pipeline_local.py --pipeline-engine dify
 
 ---
 
+## ML Features pipeline (manual local run)
+
+Compute predictive metrics into `predictive_features` (19 of 21 columns populated today):
+
+```bash
+cd src/scraper
+pip install -r requirements.txt
+
+# Dry run — inspect payloads without DB writes
+python ml_pipeline_runner.py --tickers MAYBANK --dry-run
+
+# Full run for one quarter
+python ml_pipeline_runner.py \
+  --tickers MAYBANK,CIMB,MAXIS \
+  --fiscal-year 2025 \
+  --fiscal-quarter Q4
+```
+
+Required env var: `DATABASE_URL`. Optional overrides: `ML_FEATURE_TICKERS`,
+`ML_FEATURE_YEAR`, `ML_FEATURE_QUARTER`.
+
+Apply the database migration first:
+
+```bash
+cd src/backend && alembic upgrade head
+```
+
+See [ML Features ETL](../data-engineering/ml-features-etl.md) for the full
+reference.
+
+Trigger via Airflow (local Docker):
+
+```bash
+docker compose -f docker-compose.airflow.yml exec -T airflow-webserver \
+  airflow dags trigger ml_features_etl
+```
+
+---
+
 ## Validation check
 
 ```bash
