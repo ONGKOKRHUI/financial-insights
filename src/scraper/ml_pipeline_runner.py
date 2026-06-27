@@ -69,6 +69,47 @@ logger = logging.getLogger(__name__)
 DEFAULT_TICKERS = (
     "MAYBANK", "CIMB", "SUNWAY", "GENTING", "TELEKOM", "MAXIS", "TNB",
 )
+DEFAULT_PEER_SENTIMENT_SAMPLE_LIMIT = 10
+DEFAULT_PEER_SENTIMENT_MIN_RATES = 1
+DEFAULT_PEER_SENTIMENT_FALLBACK_LIMIT = 2
+
+
+def _positive_int_env(name: str, default: int) -> int | None:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid %s=%r; using default %d",
+            name,
+            raw,
+            default,
+        )
+        return default
+    return value if value > 0 else None
+
+
+def _peer_sentiment_sample_limit() -> int | None:
+    return _positive_int_env(
+        "ML_PEER_SENTIMENT_SAMPLE_LIMIT",
+        DEFAULT_PEER_SENTIMENT_SAMPLE_LIMIT,
+    )
+
+
+def _peer_sentiment_min_rates() -> int | None:
+    return _positive_int_env(
+        "ML_PEER_SENTIMENT_MIN_RATES",
+        DEFAULT_PEER_SENTIMENT_MIN_RATES,
+    )
+
+
+def _peer_sentiment_fallback_limit() -> int | None:
+    return _positive_int_env(
+        "ML_PEER_SENTIMENT_FALLBACK_LIMIT",
+        DEFAULT_PEER_SENTIMENT_FALLBACK_LIMIT,
+    )
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -97,7 +138,7 @@ class PipelineContext:
     """
 
     def __init__(self) -> None:
-        self._phase3_cache: dict[tuple[str, int, str], FeaturePayload] = {}
+        self._phase3_cache: dict[tuple[str, int, str, bool], FeaturePayload] = {}
         self._sector_rate_cache: dict[tuple[str, int, str], list[float]] = {}
 
     def get_surprise_payload(
@@ -105,20 +146,33 @@ class PipelineContext:
         target: FeatureTarget,
         *,
         description: str | None = None,
+        allow_investing_fallback: bool = True,
     ) -> FeaturePayload:
         """Run Phase 3 for *target* (cached; at most one network fetch per ticker/period).
 
         *description* is forwarded to Investing.com for dynamic slug resolution
         when the ticker lacks a static slug mapping.
         """
-        key = (target.ticker, target.fiscal_year, target.fiscal_quarter)
+        key = (
+            target.ticker,
+            target.fiscal_year,
+            target.fiscal_quarter,
+            allow_investing_fallback,
+        )
         if key not in self._phase3_cache:
             payload = FeaturePayload(
                 ticker=target.ticker,
                 fiscal_year=target.fiscal_year,
                 fiscal_quarter=target.fiscal_quarter,
             )
-            run_surprises(target, payload, allow_investing=True, description=description)
+            run_surprises(
+                target,
+                payload,
+                allow_investing=True,
+                allow_investing_fallback=allow_investing_fallback,
+                allow_fallback_sources=allow_investing_fallback,
+                description=description,
+            )
             self._phase3_cache[key] = payload
         return self._phase3_cache[key]
 
@@ -127,7 +181,7 @@ class PipelineContext:
         target: FeatureTarget,
         peers: list[PeerRef],
     ) -> list[float]:
-        """Return revenue beat rates for dynamically discovered sector peers.
+        """Return best available earnings beat rates for sector peers.
 
         Results are cached by (sector, year, quarter) so targets in the same
         sector share a single set of peer fetches.
@@ -139,7 +193,12 @@ class PipelineContext:
         if sector_key in self._sector_rate_cache:
             return self._sector_rate_cache[sector_key]
 
+        sample_limit = _peer_sentiment_sample_limit()
+        min_rates = _peer_sentiment_min_rates()
+        fallback_limit = _peer_sentiment_fallback_limit()
         rates: list[float] = []
+        peers_without_fast_rate: list[PeerRef] = []
+
         for peer in peers:
             peer_target = FeatureTarget(
                 ticker=peer.ticker,
@@ -148,15 +207,63 @@ class PipelineContext:
             )
             try:
                 payload = self.get_surprise_payload(
-                    peer_target, description=peer.description,
+                    peer_target,
+                    description=peer.description,
+                    allow_investing_fallback=False,
                 )
-                rate = payload.metrics.get("revenue_beat_rate_8q")
+                rate = _peer_sentiment_rate(payload)
                 if rate is not None:
-                    rates.append(float(rate))
+                    rates.append(rate)
+                    if sample_limit is not None and len(rates) >= sample_limit:
+                        logger.info(
+                            "Phase 3 peer sentiment: reached sample limit of %d for %s",
+                            sample_limit,
+                            sector,
+                        )
+                        break
+                else:
+                    peers_without_fast_rate.append(peer)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Phase 3 failed for peer %s: %s", peer.ticker, exc,
                 )
+                peers_without_fast_rate.append(peer)
+
+        needs_more_rates = min_rates is not None and len(rates) < min_rates
+        if needs_more_rates and peers_without_fast_rate and fallback_limit != 0:
+            max_fallbacks = (
+                len(peers_without_fast_rate)
+                if fallback_limit is None
+                else min(fallback_limit, len(peers_without_fast_rate))
+            )
+            logger.info(
+                "Phase 3 peer sentiment: fast pass produced %d rate(s) for %s; "
+                "trying full fallback for up to %d peer(s)",
+                len(rates),
+                sector,
+                max_fallbacks,
+            )
+            for peer in peers_without_fast_rate[:max_fallbacks]:
+                peer_target = FeatureTarget(
+                    ticker=peer.ticker,
+                    fiscal_year=target.fiscal_year,
+                    fiscal_quarter=target.fiscal_quarter,
+                )
+                try:
+                    payload = self.get_surprise_payload(
+                        peer_target,
+                        description=peer.description,
+                        allow_investing_fallback=True,
+                    )
+                    rate = _peer_sentiment_rate(payload)
+                    if rate is not None:
+                        rates.append(rate)
+                        if min_rates is not None and len(rates) >= min_rates:
+                            break
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Phase 3 fallback failed for peer %s: %s", peer.ticker, exc,
+                    )
 
         self._sector_rate_cache[sector_key] = rates
         return rates
@@ -169,6 +276,15 @@ def _apply_prefetched_phase3(payload: FeaturePayload, prefetched: FeaturePayload
     for key, value in prefetched.source_metadata.items():
         if key.startswith("phase_3"):
             payload.set_metadata(key, value)
+
+
+def _peer_sentiment_rate(payload: FeaturePayload) -> float | None:
+    """Use revenue beat rate when available, otherwise EPS beat rate."""
+    for metric in ("revenue_beat_rate_8q", "eps_beat_rate_8q"):
+        rate = payload.metrics.get(metric)
+        if rate is not None:
+            return float(rate)
+    return None
 
 
 def run_for_target(
@@ -209,7 +325,10 @@ def run_for_target(
     ]
     peer_rates = context.peer_beat_rates(target, peers)
     payload.set_metadata("peer_beat_rates", peer_rates)
-    payload.set_metadata("peer_beat_rate_source", "TradingView sector peers + Phase 3 cache")
+    payload.set_metadata(
+        "peer_beat_rate_source",
+        "TradingView sector peers + Phase 3 cache (revenue beat, EPS fallback)",
+    )
     payload.set_metadata("peer_beat_rate_count", len(peer_rates))
 
     # Phase 3 for the target itself (cached; may already exist from a peer run).

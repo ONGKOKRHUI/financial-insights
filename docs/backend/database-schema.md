@@ -199,7 +199,7 @@ Unique constraint: `(ticker, fiscal_year, fiscal_quarter)`.
 | Fundamentals | `revenue_yoy_growth_pct`, `net_income_yoy_growth_pct`, `gross_margin_delta_qoq_pct`, `operating_margin_delta_qoq_pct`, `fcf_yield_pct` | Phase 1 (yfinance + i3investor margins) | Yes |
 | Valuation | `forward_pe_peer_zscore`, `forward_pe_peer_discount_pct`, `forward_ps_ratio`, `peg_ratio` | Phase 2 (yfinance + TradingView trailing PE peers) | Yes |
 | Forward-looking | `guidance_beat_indicator`, `backlog_order_book_yoy_growth_pct` | Phase 5 (planned — PDF regex) | No |
-| Forward-looking | `sector_peer_earnings_sentiment` | Phase 5 (TradingView peers + Phase 3 cache) | Yes |
+| Forward-looking | `sector_peer_earnings_sentiment` | Phase 5 (TradingView peers + Phase 3 cache; revenue beat, EPS fallback) | Yes |
 
 Additional columns:
 

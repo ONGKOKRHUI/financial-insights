@@ -236,6 +236,134 @@ def test_pipeline_context_peer_beat_rates():
     assert sorted(rates) == [0.5, 0.875]
 
 
+def test_pipeline_context_peer_beat_rates_use_fast_mode_and_sample_limit(monkeypatch):
+    _SRC_SCRAPER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "scraper"))
+    if _SRC_SCRAPER not in sys.path:
+        sys.path.insert(0, _SRC_SCRAPER)
+
+    from unittest.mock import patch as mock_patch
+
+    from ml_pipeline_runner import PipelineContext
+
+    monkeypatch.setenv("ML_PEER_SENTIMENT_SAMPLE_LIMIT", "2")
+    calls = []
+
+    def fake_run_surprises(target, payload, **kwargs):
+        calls.append((target.ticker, kwargs))
+        payload.set_metric("revenue_beat_rate_8q", 0.5)
+
+    with mock_patch("ml_pipeline_runner.run_surprises", side_effect=fake_run_surprises):
+        ctx = PipelineContext()
+        target = FeatureTarget(ticker="TNB", fiscal_year=2025, fiscal_quarter="Q4")
+        peers = [
+            PeerRef(ticker="YTLPOWR", tv_name="YTLPOWR", description=None, sector="Utilities"),
+            PeerRef(ticker="MALAKOF", tv_name="MALAKOF", description=None, sector="Utilities"),
+            PeerRef(ticker="DIALOG", tv_name="DIALOG", description=None, sector="Utilities"),
+        ]
+        rates = ctx.peer_beat_rates(target, peers)
+
+    assert rates == [0.5, 0.5]
+    assert [ticker for ticker, _ in calls] == ["YTLPOWR", "MALAKOF"]
+    assert all(kwargs["allow_investing_fallback"] is False for _, kwargs in calls)
+    assert all(kwargs["allow_fallback_sources"] is False for _, kwargs in calls)
+
+
+def test_pipeline_context_keeps_fast_peer_cache_separate_from_full_target_cache():
+    _SRC_SCRAPER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "scraper"))
+    if _SRC_SCRAPER not in sys.path:
+        sys.path.insert(0, _SRC_SCRAPER)
+
+    from unittest.mock import patch as mock_patch
+
+    from ml_pipeline_runner import PipelineContext
+
+    calls = []
+
+    def fake_run_surprises(target, payload, **kwargs):
+        calls.append(kwargs["allow_investing_fallback"])
+        payload.set_metric("revenue_beat_rate_8q", 0.75 if kwargs["allow_investing_fallback"] else 0.5)
+
+    with mock_patch("ml_pipeline_runner.run_surprises", side_effect=fake_run_surprises):
+        ctx = PipelineContext()
+        target = FeatureTarget(ticker="MAYBANK", fiscal_year=2025, fiscal_quarter="Q4")
+        fast_payload = ctx.get_surprise_payload(target, allow_investing_fallback=False)
+        full_payload = ctx.get_surprise_payload(target)
+
+    assert fast_payload.metrics["revenue_beat_rate_8q"] == 0.5
+    assert full_payload.metrics["revenue_beat_rate_8q"] == 0.75
+    assert calls == [False, True]
+
+
+def test_pipeline_context_uses_bounded_fallback_when_fast_peer_rates_empty(monkeypatch):
+    _SRC_SCRAPER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "scraper"))
+    if _SRC_SCRAPER not in sys.path:
+        sys.path.insert(0, _SRC_SCRAPER)
+
+    from unittest.mock import patch as mock_patch
+
+    from ml_pipeline_runner import PipelineContext
+
+    monkeypatch.setenv("ML_PEER_SENTIMENT_SAMPLE_LIMIT", "1")
+    monkeypatch.setenv("ML_PEER_SENTIMENT_MIN_RATES", "1")
+    monkeypatch.setenv("ML_PEER_SENTIMENT_FALLBACK_LIMIT", "1")
+    calls = []
+
+    def fake_run_surprises(target, payload, **kwargs):
+        calls.append((target.ticker, kwargs["allow_investing_fallback"]))
+        if kwargs["allow_investing_fallback"]:
+            payload.set_metric("revenue_beat_rate_8q", 0.625)
+        else:
+            payload.set_metric("revenue_beat_rate_8q", None)
+
+    with mock_patch("ml_pipeline_runner.run_surprises", side_effect=fake_run_surprises):
+        ctx = PipelineContext()
+        target = FeatureTarget(ticker="TNB", fiscal_year=2025, fiscal_quarter="Q4")
+        peers = [
+            PeerRef(ticker="YTLPOWR", tv_name="YTLPOWR", description=None, sector="Utilities"),
+            PeerRef(ticker="PETGAS", tv_name="PETGAS", description=None, sector="Utilities"),
+        ]
+        rates = ctx.peer_beat_rates(target, peers)
+
+    assert rates == [0.625]
+    assert calls == [
+        ("YTLPOWR", False),
+        ("PETGAS", False),
+        ("YTLPOWR", True),
+    ]
+
+
+def test_pipeline_context_peer_sentiment_uses_eps_when_revenue_missing(monkeypatch):
+    _SRC_SCRAPER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "scraper"))
+    if _SRC_SCRAPER not in sys.path:
+        sys.path.insert(0, _SRC_SCRAPER)
+
+    from unittest.mock import patch as mock_patch
+
+    from ml_pipeline_runner import PipelineContext
+
+    monkeypatch.setenv("ML_PEER_SENTIMENT_SAMPLE_LIMIT", "1")
+    monkeypatch.setenv("ML_PEER_SENTIMENT_MIN_RATES", "1")
+    monkeypatch.setenv("ML_PEER_SENTIMENT_FALLBACK_LIMIT", "1")
+    calls = []
+
+    def fake_run_surprises(target, payload, **kwargs):
+        calls.append((target.ticker, kwargs["allow_investing_fallback"]))
+        payload.set_metric("revenue_beat_rate_8q", None)
+        payload.set_metric("eps_beat_rate_8q", 0.5)
+
+    with mock_patch("ml_pipeline_runner.run_surprises", side_effect=fake_run_surprises):
+        ctx = PipelineContext()
+        target = FeatureTarget(ticker="TNB", fiscal_year=2025, fiscal_quarter="Q4")
+        peers = [
+            PeerRef(ticker="YTLPOWR", tv_name="YTLPOWR", description=None, sector="Utilities"),
+            PeerRef(ticker="PETGAS", tv_name="PETGAS", description=None, sector="Utilities"),
+        ]
+        rates = ctx.peer_beat_rates(target, peers)
+
+    assert rates == [0.5]
+    assert calls == [("YTLPOWR", False)]
+
+
 def test_pipeline_context_sector_rate_cache():
     _SRC_SCRAPER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src", "scraper"))
     if _SRC_SCRAPER not in sys.path:

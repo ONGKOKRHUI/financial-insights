@@ -174,12 +174,15 @@ def run(
     payload: "FeaturePayload",
     *,
     allow_investing: bool = True,
+    allow_investing_fallback: bool = True,
+    allow_fallback_sources: bool = True,
     description: str | None = None,
 ) -> None:
     """Fetch earnings surprise data and compute metrics 1-5.
 
     *description* is the TradingView company name (from ``PeerRef.description``)
-    used for dynamic Investing.com slug resolution when no static mapping exists.
+    used with Yahoo-derived exchange/country/currency metadata for
+    Investing.com identity resolution.
     """
     logger.info("Phase 3 – fetching earning surprises for %s", target.ticker)
 
@@ -198,11 +201,27 @@ def run(
         try:
             from .investing_com import fetch_earnings_surprises
 
-            records = fetch_earnings_surprises(target.ticker, limit=8, description=description)
+            identity = target.instrument_identity(name=description)
+            records = fetch_earnings_surprises(
+                target.ticker,
+                limit=8,
+                description=description,
+                identity=identity,
+                allow_fallback=allow_investing_fallback,
+            )
             if records:
                 source = "investing.com"
+                payload.set_metadata("phase_3_identity_key", identity.cache_key)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Phase 3: Investing.com failed for %s: %s", target.ticker, exc)
+
+    if not records and not allow_fallback_sources:
+        logger.info("Phase 3: skipping non-Investing fallbacks for %s", target.ticker)
+        for k in ("revenue_beat_rate_8q", "eps_beat_rate_8q", "avg_revenue_surprise_pct",
+                  "avg_eps_surprise_pct", "consecutive_double_beat_quarters"):
+            payload.set_metric(k, None)
+        payload.set_metadata("phase_3_source", "none")
+        return
 
     # 2. yfinance earnings_history (EPS only; revenue surprise will be null)
     if not records:

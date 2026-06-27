@@ -51,7 +51,7 @@ Runner phase order per target (`run_for_target`):
 
 1. Phase 1 fundamentals  
 2. Phase 2 valuation (+ TradingView sector peer discovery)  
-3. Phase 3 surprises for each sector peer (cached in `PipelineContext`)  
+3. Phase 3 surprises for sector peers (fast peer mode, cached in `PipelineContext`)  
 4. Phase 3 surprises for the target ticker  
 5. Phase 4 money flow  
 6. Phase 5 sector peer sentiment (metric 21 only)
@@ -66,7 +66,7 @@ Runner phase order per target (`run_for_target`):
 | 2 | `phase_2_valuation.py` | yfinance + TradingView Malaysia screener (trailing PE peers) | 15–18 | Yes |
 | 3 | `phase_3_surprises.py` | Investing.com JSON API → Scrapling page → yfinance → i3investor | 1–5 | Yes |
 | 4 | `phase_4_money_flow.py` | i3investor Form 29B/29C HTML + Malaysia Warrants IV JSON | 6–9 | Yes |
-| 5 | `phase_5_forward_looking.py` | Phase 2 peers + Phase 3 cached beat rates | 19–21 | **21 only** |
+| 5 | `phase_5_forward_looking.py` | Phase 2 peers + Phase 3 cached beat rates (revenue beat, EPS fallback) | 19–21 | **21 only** |
 
 Metrics **19** (`guidance_beat_indicator`) and **20** (`backlog_order_book_yoy_growth_pct`) exist in the ORM/migration but have **no phase implementation yet**. They were originally planned for local quarterly PDF regex extraction.
 
@@ -74,9 +74,12 @@ Each phase exposes `run(target: FeatureTarget, payload: FeaturePayload) -> None`
 
 ### Phase 3 fallback chain
 
-1. **Investing.com** — fast JSON API at `endpoints.investing.com/earnings/v1/…`; Scrapling fallback parses `__NEXT_DATA__` when instrument ID resolution fails  
-2. **yfinance** — `earnings_history` (EPS only; revenue metrics stay NULL)  
-3. **i3investor** — `analyst-earnings.ajax.php` HTML table  
+1. **Investing.com** — fast JSON API at `endpoints.investing.com/earnings/v1/…`; static instrument IDs in `types._INVESTING_INSTRUMENT_IDS` skip the search round-trip for known tickers  
+2. **Scrapling** — full Investing.com page fallback parses `__NEXT_DATA__` and caches any discovered `instrument_id` for the current process  
+3. **yfinance** — `earnings_history` (EPS only; revenue metrics stay NULL)  
+4. **i3investor** — `analyst-earnings.ajax.php` HTML table  
+
+The runner can disable the slow fallback chain for peer-only requests. Target tickers still use the full fallback chain so their own Phase 3 metrics remain as complete as possible.
 
 ### Phase 2 peer discovery
 
@@ -84,8 +87,21 @@ TradingView screener returns liquid KLSE peers (market cap > 1 B MYR, trailing P
 
 ### Cross-target cache (`PipelineContext`)
 
-- `get_surprise_payload()` — at most one Phase 3 network fetch per `(ticker, year, quarter)`  
-- `peer_beat_rates()` — cached by `(sector, year, quarter)` for metric 21  
+- `get_surprise_payload()` — at most one Phase 3 network fetch per `(ticker, year, quarter, fallback_mode)`  
+- `peer_beat_rates()` — cached by `(sector, year, quarter)` for metric 21
+- Investing.com bearer-token bootstrap failures are cached briefly (`INVESTING_BEARER_RETRY_SECONDS`) so one local browser failure does not retry for every peer
+
+### Metric 21 peer sentiment
+
+`sector_peer_earnings_sentiment` is computed from the TradingView sector peers discovered in Phase 2. The runner fetches peer Phase 3 data in a fast mode first:
+
+1. Resolve known/static Investing.com instrument IDs, or use the search API when needed.
+2. Call the Investing.com earnings JSON API.
+3. Skip Scrapling/yfinance/i3investor for the first peer pass to avoid 90-second browser fallbacks.
+4. Use `revenue_beat_rate_8q` when available; if the API has no revenue forecast data for that peer, use `eps_beat_rate_8q`.
+5. Stop once `ML_PEER_SENTIMENT_SAMPLE_LIMIT` usable rates are collected.
+
+If the fast pass produces fewer than `ML_PEER_SENTIMENT_MIN_RATES`, the runner may try a bounded number of full fallback peer fetches (`ML_PEER_SENTIMENT_FALLBACK_LIMIT`). This protects small sectors from returning `NULL` while preventing a single company run from scraping dozens of slow peer pages.
 
 ---
 
@@ -124,6 +140,11 @@ For local Airflow before Alembic runs, `ensure_predictive_features_table()` in `
 | `ML_FEATURE_YEAR` | No | Fiscal year override |
 | `ML_FEATURE_QUARTER` | No | Fiscal quarter override (`Q1`–`Q4`) |
 | `ML_FEATURE_LIMIT` | No | Cap tickers per Airflow run |
+| `ML_PEER_SENTIMENT_SAMPLE_LIMIT` | No | Max usable peer rates for metric 21 (default `10`; non-positive means no cap) |
+| `ML_PEER_SENTIMENT_MIN_RATES` | No | Minimum peer rates before bounded full fallback is attempted (default `1`; non-positive means no minimum) |
+| `ML_PEER_SENTIMENT_FALLBACK_LIMIT` | No | Max slow full-fallback peer fetches when fast pass is undersampled (default `2`; non-positive means no cap) |
+| `INVESTING_BEARER_TOKEN` | No | Pre-supplied Investing.com guest bearer token to skip browser bootstrap |
+| `INVESTING_BEARER_RETRY_SECONDS` | No | Cooldown after bearer bootstrap failure (default `300`) |
 | `INVESTING_SOLVE_CLOUDFLARE` | No | Scrapling CF solver for Investing.com fallback (default `false`) |
 | `SCRAPLING_REAL_CHROME` | No | Use system Chrome for Scrapling (optional) |
 

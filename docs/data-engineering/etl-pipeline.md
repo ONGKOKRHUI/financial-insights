@@ -109,7 +109,8 @@ check_new_pdfs >> trigger_parse_pipeline >> load_to_postgres
 !!! success "ML Features ETL — Implemented"
     Computes 19 populated metrics (of 21 schema columns) per
     `(ticker, fiscal_year, fiscal_quarter)` from yfinance, TradingView,
-    Investing.com, i3investor, and Malaysia Warrants. See
+    Investing.com, i3investor, and Malaysia Warrants. Sector peer sentiment
+    uses a fast Investing.com peer pass with bounded slow fallback. See
     [ML Features ETL](ml-features-etl.md) for full documentation.
 
 | Property | Value |

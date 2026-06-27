@@ -61,7 +61,7 @@ Phase 3 metrics already in `predictive_features`:
 | 18 | `peg_ratio` | 2 | PEG ratio |
 | 19 | `guidance_beat_indicator` | 5 | Guidance/KPI beat (boolean) — **not yet populated** |
 | 20 | `backlog_order_book_yoy_growth_pct` | 5 | Backlog YoY growth % — **not yet populated** |
-| 21 | `sector_peer_earnings_sentiment` | 5 | Sector peer beat-rate average |
+| 21 | `sector_peer_earnings_sentiment` | 5 | Sector peer beat-rate average (revenue beat, EPS fallback) |
 
 Additional context features from `companies`: `sector`, `industry`,
 `market_cap_bln`.

@@ -34,7 +34,7 @@ Each target runs phases in this order inside `ml_pipeline_runner.run_for_target`
 
 1. Phase 1 — fundamentals (yfinance)
 2. Phase 2 — valuation (yfinance + TradingView sector peers)
-3. Phase 3 — earning surprises for sector peers discovered in Phase 2 (cached)
+3. Phase 3 — earning surprises for sector peers discovered in Phase 2 (fast mode, cached)
 4. Phase 3 — earning surprises for the target ticker
 5. Phase 4 — money flow (i3investor + Malaysia Warrants)
 6. Phase 5 — sector peer earnings sentiment (metric 21)
@@ -58,7 +58,7 @@ flowchart TD
     subgraph phases [Five phases per ticker]
         P1[Phase 1 Fundamentals\nyfinance + i3investor margins]
         P2[Phase 2 Valuation\nyfinance + TradingView peers]
-        P3[Phase 3 Earning Surprises\nInvesting.com → yfinance → i3investor]
+        P3[Phase 3 Earning Surprises\nInvesting.com API → bounded fallbacks]
         P4[Phase 4 Money Flow\ni3investor + Malaysia Warrants IV]
         P5[Phase 5 Forward-Looking\nsector peer sentiment only]
         P1 --> P2 --> P3 --> P4 --> P5
@@ -126,10 +126,13 @@ source phase. **Populated** columns are filled by the current pipeline;
 |--------|-------------|--------|
 | `guidance_beat_indicator` | Boolean: internal KPI/guidance achieved | Planned |
 | `backlog_order_book_yoy_growth_pct` | Order book / backlog YoY growth (%) | Planned |
-| `sector_peer_earnings_sentiment` | Average revenue beat rate of TradingView sector peers (0–1) | Populated |
+| `sector_peer_earnings_sentiment` | Average best available beat rate of TradingView sector peers (revenue beat, EPS fallback; 0–1) | Populated |
 
 Metric 21 is computed from `peer_beat_rates` populated by the runner after
 Phase 2 peer discovery and cached Phase 3 fetches — no PDF parsing is required.
+For each peer, the runner uses `revenue_beat_rate_8q` when available and falls
+back to `eps_beat_rate_8q` when Investing.com has EPS history but no revenue
+forecast data.
 
 ---
 
@@ -141,8 +144,8 @@ Phase 2 peer discovery and cached Phase 3 fetches — no PDF parsing is required
 | `src/scraper/ml_features/types.py` | `FeatureTarget`, `FeaturePayload`, `PeerRef`, KLSE code maps |
 | `src/scraper/ml_features/phase_1_fundamentals.py` | yfinance quarterly statements; i3investor margin fallback |
 | `src/scraper/ml_features/phase_2_valuation.py` | yfinance + TradingView Malaysia screener peer discovery |
-| `src/scraper/ml_features/phase_3_surprises.py` | Earnings surprise metrics with multi-source fallback chain |
-| `src/scraper/ml_features/investing_com.py` | Investing.com JSON API + Scrapling page fallback |
+| `src/scraper/ml_features/phase_3_surprises.py` | Earnings surprise metrics with full target fallback chain and fast peer mode |
+| `src/scraper/ml_features/investing_com.py` | Investing.com JSON API, static instrument ID cache, search resolver, Scrapling page fallback |
 | `src/scraper/ml_features/i3investor.py` | KLSE HTML scrapers (margins, trades, earnings fallback) |
 | `src/scraper/ml_features/phase_4_money_flow.py` | i3investor shareholding trades + warrant IV |
 | `src/scraper/ml_features/phase_5_forward_looking.py` | Sector peer earnings sentiment (metric 21) |
@@ -160,7 +163,7 @@ Phase 2 peer discovery and cached Phase 3 fetches — no PDF parsing is required
 |-------|----------------|----------------|
 | 1 | [yfinance](https://pypi.org/project/yfinance/) (`1155.KL` Bursa numeric codes) | i3investor `/web/stock/financial-quarter/{code}` for bank margin QoQ |
 | 2 | yfinance (market cap, P/S, PEG) + [TradingView Malaysia screener](https://scanner.tradingview.com/malaysia/scan) | — |
-| 3 | [Investing.com](https://www.investing.com/) earnings JSON API (~350 ms) | Scrapling page load → yfinance `earnings_history` (EPS only) → i3investor analyst earnings |
+| 3 | [Investing.com](https://www.investing.com/) earnings JSON API (~200–500 ms once authenticated) | Target tickers: Scrapling page load → yfinance `earnings_history` (EPS only) → i3investor analyst earnings. Peer fast pass skips slow fallbacks unless undersampled. |
 | 4 | [i3investor](https://klse.i3investor.com/) Form 29B/29C HTML trade tables | — |
 | 4 (IV) | [Malaysia Warrants](https://www.malaysiawarrants.com.my/) `ScreenerJSONServlet` | — |
 | 5 | Phase 2 peer list + Phase 3 cached beat rates | — |
@@ -169,9 +172,22 @@ Phase 2 peer discovery and cached Phase 3 fetches — no PDF parsing is required
 
 `PipelineContext` in `ml_pipeline_runner.py` ensures:
 
-- Each `(ticker, fiscal_year, fiscal_quarter)` is fetched at most once for Phase 3
+- Each `(ticker, fiscal_year, fiscal_quarter, fallback_mode)` is fetched at most once for Phase 3
 - Sector peers discovered by TradingView in Phase 2 reuse the same Phase 3 cache
 - Multiple targets in the same sector share one peer beat-rate list for metric 21
+- Investing.com bearer-token bootstrap failures are cooled down in-process so one browser failure does not retry for every peer
+
+### Peer sentiment speed controls
+
+Peer sentiment is designed to avoid minutes-long single-company runs:
+
+1. Known Investing.com instrument IDs in `types._INVESTING_INSTRUMENT_IDS` are used before search.
+2. The first peer pass uses the fast Investing.com API and skips Scrapling/yfinance/i3investor fallbacks.
+3. The runner stops after `ML_PEER_SENTIMENT_SAMPLE_LIMIT` usable peer rates.
+4. If the fast pass produces fewer than `ML_PEER_SENTIMENT_MIN_RATES`, the runner may try up to `ML_PEER_SENTIMENT_FALLBACK_LIMIT` full fallback peer fetches.
+
+This keeps large sectors such as Finance fast while still allowing small sectors
+such as Utilities to produce a non-null `sector_peer_earnings_sentiment`.
 
 ### yfinance symbol mapping
 
@@ -227,6 +243,11 @@ python ml_pipeline_runner.py --tickers MAYBANK --dry-run
 | `ML_FEATURE_YEAR` | `2025` | Fiscal year |
 | `ML_FEATURE_QUARTER` | `Q4` | Fiscal quarter |
 | `ML_FEATURE_LIMIT` | `0` (unlimited) | Airflow ticker cap |
+| `ML_PEER_SENTIMENT_SAMPLE_LIMIT` | `10` | Max usable peer rates for metric 21; non-positive means no cap |
+| `ML_PEER_SENTIMENT_MIN_RATES` | `1` | Minimum peer rates before bounded full fallback is attempted; non-positive means no minimum |
+| `ML_PEER_SENTIMENT_FALLBACK_LIMIT` | `2` | Max slow full-fallback peer fetches when fast pass is undersampled; non-positive means no cap |
+| `INVESTING_BEARER_TOKEN` | unset | Optional pre-supplied Investing.com guest bearer token to skip browser bootstrap |
+| `INVESTING_BEARER_RETRY_SECONDS` | `300` | Cooldown after bearer bootstrap failure |
 | `INVESTING_SOLVE_CLOUDFLARE` | `false` | Scrapling CF solver for Investing.com fallback |
 | `SCRAPLING_REAL_CHROME` | `false` | Use system Chrome instead of bundled Chromium |
 

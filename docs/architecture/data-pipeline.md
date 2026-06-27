@@ -64,6 +64,11 @@ quarter into the `predictive_features` table.  Phase 5 currently writes
 **metric 21 only** (`sector_peer_earnings_sentiment`); PDF-based metrics 19–20
 are planned.
 
+Peer sentiment uses TradingView sector peers and a fast Investing.com earnings
+API pass first, with revenue beat rate preferred and EPS beat rate used when
+revenue forecasts are unavailable. Slow browser fallbacks are bounded so
+single-company runs remain fast.
+
 See [ML Features ETL](../data-engineering/ml-features-etl.md).
 
 ---
@@ -131,7 +136,7 @@ schedulable in the same orchestration layer.
   (`income_statements`, `kpi_summaries`, etc.).
 - ML Features ETL outputs one row per `(ticker, fiscal_year, fiscal_quarter)`
   in `predictive_features` with 21 schema columns (**19 populated** by the
-  current pipeline).
+  current pipeline), including bounded sector peer earnings sentiment.
 - Docs ingestion outputs chunked documents in Elasticsearch with:
   - source metadata (`source_path`, `doc_type`, `domain`, `ticker`)
   - lineage metadata (`doc_id`, `chunk_id`, previous/next chunk links)

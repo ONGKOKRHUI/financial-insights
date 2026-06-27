@@ -65,8 +65,114 @@ _INVESTING_EQUITY_SLUGS: dict[str, str] = {
 # Discovered IDs are cached at runtime; add known IDs here to skip the
 # search-API round-trip on the first call.
 _INVESTING_INSTRUMENT_IDS: dict[str, int] = {
+    "ABMB": 41621,
+    "AEONCR": 41664,
+    "AMBANK": 41603,
+    "AXREIT": 1162311,
+    "BIMB": 41681,
+    "BURSA": 41614,
+    "CBHB": 1225495,
+    "CIMB": 41604,
+    "CLMT": 15739,
+    "ECOWLD": 950217,
+    "E&O": 41629,
+    "GASMSIA": 41671,
+    "HLBANK": 41685,
+    "HCK": 950289,
+    "HLFG": 41606,
+    "IDEAL": 950331,
+    "IGBB": 950267,
+    "IGBREIT": 41679,
+    "IOIPG": 950325,
+    "KLCC": 41680,
+    "KSL": 950371,
+    "LPI": 950394,
+    "MAHSING": 41699,
+    "MATRIX": 950402,
+    "MAYBANK": 41607,
+    "MFCB": 950407,
+    "MKH": 950411,
+    "OSK": 41658,
+    "PARADIGM": 1232227,
+    "PAVREIT": 41674,
+    "PBBANK": 41609,
+    "PETGAS": 41689,
+    "RADIUM": 1203207,
+    "RANHILL": 960868,
+    "RCECAP": 950480,
+    "RHBBANK": 41605,
+    "SIMEPROP": 1056020,
+    "SPSETIA": 994057,
+    "SUNREIT": 953680,
+    "TAKAFUL": 950510,
+    "TNB": 41648,
+    "UEMS": 41645,
+    "UOADEV": 41647,
+    "YTLREIT": 993307,
     "YTL": 41640,
+    "YTLPOWR": 41650,
 }
+
+
+@dataclass(frozen=True)
+class InstrumentIdentity:
+    """Exchange-qualified instrument identity used across market data providers."""
+
+    yahoo_symbol: str
+    ticker: str
+    name: str | None = None
+    isin: str | None = None
+    investing_instrument_id: int | None = None
+    exchange: str | None = None
+    exchange_mic: str | None = None
+    country: str | None = None
+    currency: str | None = None
+
+    @classmethod
+    def from_yahoo_symbol(
+        cls,
+        *,
+        yahoo_symbol: str,
+        ticker: str,
+        name: str | None = None,
+        isin: str | None = None,
+        investing_instrument_id: int | None = None,
+    ) -> "InstrumentIdentity":
+        symbol = yahoo_symbol.upper()
+        if symbol.endswith(".KL"):
+            return cls(
+                yahoo_symbol=symbol,
+                ticker=ticker.upper(),
+                name=name,
+                isin=isin,
+                investing_instrument_id=investing_instrument_id,
+                exchange="Kuala Lumpur",
+                exchange_mic="XKLS",
+                country="Malaysia",
+                currency="MYR",
+            )
+        return cls(
+            yahoo_symbol=symbol,
+            ticker=ticker.upper(),
+            name=name,
+            isin=isin,
+            investing_instrument_id=investing_instrument_id,
+        )
+
+    @property
+    def cache_key(self) -> str:
+        if self.isin:
+            return f"isin:{self.isin.upper()}"
+        if self.investing_instrument_id:
+            return f"investing_id:{self.investing_instrument_id}"
+        if self.exchange_mic:
+            return f"mic_symbol:{self.exchange_mic.upper()}:{self.ticker.upper()}"
+        if self.exchange and self.country:
+            return (
+                "exchange_symbol:"
+                f"{self.country.upper()}:{self.exchange.upper()}:{self.ticker.upper()}"
+            )
+        return f"yahoo:{self.yahoo_symbol.upper()}"
 
 
 @dataclass(frozen=True)
@@ -84,6 +190,21 @@ class FeatureTarget:
         if code:
             return f"{code}.KL"
         return f"{self.ticker}.KL"
+
+    def instrument_identity(
+        self,
+        *,
+        name: str | None = None,
+        isin: str | None = None,
+        investing_instrument_id: int | None = None,
+    ) -> InstrumentIdentity:
+        return InstrumentIdentity.from_yahoo_symbol(
+            yahoo_symbol=self.yf_symbol,
+            ticker=self.ticker,
+            name=name,
+            isin=isin,
+            investing_instrument_id=investing_instrument_id,
+        )
 
 
 @dataclass(frozen=True)
